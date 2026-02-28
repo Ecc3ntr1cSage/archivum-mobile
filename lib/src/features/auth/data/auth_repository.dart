@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../core/providers/supabase_provider.dart';
 
 class AuthRepository {
   final SupabaseClient client;
