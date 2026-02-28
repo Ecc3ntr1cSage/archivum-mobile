@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../quotes/domain/quote.dart';
+import '../../../core/providers/quote_repository_provider.dart';
 
-class AddQuotePage extends StatefulWidget {
+class AddQuotePage extends ConsumerStatefulWidget {
   const AddQuotePage({super.key});
 
   @override
-  State<AddQuotePage> createState() => _AddQuotePageState();
+  ConsumerState<AddQuotePage> createState() => _AddQuotePageState();
 }
 
-class _AddQuotePageState extends State<AddQuotePage> {
+class _AddQuotePageState extends ConsumerState<AddQuotePage> {
   final TextEditingController _quoteController = TextEditingController();
   final TextEditingController _authorController = TextEditingController();
   
@@ -260,7 +263,37 @@ class _AddQuotePageState extends State<AddQuotePage> {
                         elevation: 4,
                         shadowColor: clr.primary.withOpacity(0.4),
                       ),
-                      onPressed: () {},
+                      onPressed: () async {
+                        final content = _quoteController.text.trim();
+                        final author = _authorController.text.trim();
+
+                        if (content.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Quote content is required')),
+                          );
+                          return;
+                        }
+
+                        final newQuote = Quote(
+                          content: content,
+                          author: author.isEmpty ? null : author,
+                          tag: _selectedCategory,
+                          // id and createdAt are auto-generated
+                        );
+
+                        try {
+                          final repository = ref.read(quoteRepositoryProvider);
+                          await repository.createQuote(newQuote);
+
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to save quote: $e')),
+                          );
+                        }
+                      },
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

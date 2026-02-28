@@ -373,16 +373,14 @@ class _SnippetsPageState extends State<SnippetsPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Expanded(
-                  child: Text(
-                    '"$quote"', 
-                    style: TextStyle(
-                      fontSize: 20, 
-                      fontWeight: FontWeight.bold, 
-                      fontStyle: FontStyle.italic,
-                      color: isDark ? Colors.grey[100] : Colors.black87,
-                      height: 1.5,
-                    ),
+                Text(
+                  '"$quote"', 
+                  style: TextStyle(
+                    fontSize: 20, 
+                    fontWeight: FontWeight.bold, 
+                    fontStyle: FontStyle.italic,
+                    color: isDark ? Colors.grey[100] : Colors.black87,
+                    height: 1.5,
                   ),
                 ),
                 if (author != null) 
@@ -459,41 +457,78 @@ class _SnippetsPageState extends State<SnippetsPage> {
                     const SizedBox(height: 24),
                     LayoutBuilder(builder: (context, constraints) {
                       final isWide = constraints.maxWidth > 700;
-                      return GridView.count(
-                        crossAxisCount: isWide ? 2 : 1,
-                        shrinkWrap: true,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: isWide ? 1.0 : 0.85,
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _noteCard(
-                            context, isDark, clr,
-                            title: 'Project Ideas 2024', 
-                            excerpt: 'A collection of innovative thoughts for the upcoming year including mobile app frameworks and decentralized databases...', 
-                            time: '2h ago',
+                          Expanded(
+                            child: Column(
+                              children: [
+                                _noteCard(
+                                  context, isDark, clr,
+                                  title: 'Project Ideas 2024', 
+                                  excerpt: 'A collection of innovative thoughts for the upcoming year including mobile app frameworks and decentralized databases...', 
+                                  time: '2h ago',
+                                ),
+                                const SizedBox(height: 16),
+                                if (!isWide) ...[
+                                  _quoteCard(
+                                    context, isDark, clr,
+                                    quote: 'The only way to do great work is to love what you do.', 
+                                    author: 'Steve Jobs', 
+                                    time: 'Yesterday',
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _noteCard(
+                                    context, isDark, clr,
+                                    title: 'Grocery List', 
+                                    excerpt: 'Almond milk, organic coffee beans, sourdough bread, avocados, and fresh basil for dinner tonight.', 
+                                    time: '5h ago',
+                                    isAccent: true,
+                                    tag: '#shopping',
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _quoteCard(
+                                    context, isDark, clr,
+                                    quote: 'Your time is limited, so don\'t waste it living someone else\'s life.', 
+                                    author: 'Steve Jobs', 
+                                    time: 'Mar 12',
+                                    isAccent: true,
+                                  ),
+                                ],
+                                if (isWide)
+                                  _noteCard(
+                                    context, isDark, clr,
+                                    title: 'Grocery List', 
+                                    excerpt: 'Almond milk, organic coffee beans, sourdough bread, avocados, and fresh basil for dinner tonight.', 
+                                    time: '5h ago',
+                                    isAccent: true,
+                                    tag: '#shopping',
+                                  ),
+                              ],
+                            ),
                           ),
-                          _quoteCard(
-                            context, isDark, clr,
-                            quote: 'The only way to do great work is to love what you do.', 
-                            author: 'Steve Jobs', 
-                            time: 'Yesterday',
-                          ),
-                          _noteCard(
-                            context, isDark, clr,
-                            title: 'Grocery List', 
-                            excerpt: 'Almond milk, organic coffee beans, sourdough bread, avocados, and fresh basil for dinner tonight.', 
-                            time: '5h ago',
-                            isAccent: true,
-                            tag: '#shopping',
-                          ),
-                          _quoteCard(
-                            context, isDark, clr,
-                            quote: 'Your time is limited, so don\'t waste it living someone else\'s life.', 
-                            author: 'Steve Jobs', 
-                            time: 'Mar 12',
-                            isAccent: true,
-                          ),
+                          if (isWide) const SizedBox(width: 16),
+                          if (isWide)
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  _quoteCard(
+                                    context, isDark, clr,
+                                    quote: 'The only way to do great work is to love what you do.', 
+                                    author: 'Steve Jobs', 
+                                    time: 'Yesterday',
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _quoteCard(
+                                    context, isDark, clr,
+                                    quote: 'Your time is limited, so don\'t waste it living someone else\'s life.', 
+                                    author: 'Steve Jobs', 
+                                    time: 'Mar 12',
+                                    isAccent: true,
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       );
                     })
@@ -502,58 +537,7 @@ class _SnippetsPageState extends State<SnippetsPage> {
               ),
             ),
           ),
-          _bottomNav(isDark, clr),
         ],
-      ),
-    );
-  }
-
-  Widget _bottomNav(bool isDark, ColorScheme clr) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2A1F36) : const Color(0xFFF7F6F8),
-        border: Border(
-          top: BorderSide(color: isDark ? const Color(0xFF3D2D4D) : Colors.grey[300]!),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _navItem(icon: Icons.auto_awesome_motion, label: 'Snippets', isActive: true, clr: clr, isDark: isDark),
-            _navItem(icon: Icons.account_circle, label: 'Accounts', clr: clr, isDark: isDark),
-            _navItem(icon: Icons.home, label: 'Home', clr: clr, isDark: isDark),
-            _navItem(icon: Icons.clean_hands, label: 'Faith', clr: clr, isDark: isDark),
-            _navItem(icon: Icons.account_balance_wallet, label: 'Financial', clr: clr, isDark: isDark),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem({required IconData icon, required String label, bool isActive = false, required ColorScheme clr, required bool isDark}) {
-    final color = isActive ? clr.primary : Colors.grey[500]!;
-    return InkWell(
-      onTap: () {},
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
