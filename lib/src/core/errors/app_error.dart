@@ -4,13 +4,13 @@ abstract class AppError {
 }
 
 class NetworkError extends AppError {
-  NetworkError(String message) : super(message);
+  NetworkError(super.message);
 }
 
 class AuthError extends AppError {
-  AuthError(String message) : super(message);
+  AuthError(super.message);
 }
 
 class UnknownError extends AppError {
-  UnknownError(String message) : super(message);
+  UnknownError(super.message);
 }
