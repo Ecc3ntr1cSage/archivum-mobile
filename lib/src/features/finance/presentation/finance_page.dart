@@ -23,8 +23,8 @@ class _FinancePageState extends State<FinancePage>
 
   String? _selectedTag;
 
-  final List<String> _incomeTags = ['Salary', 'Gift', 'Interest', 'Other'];
-  final List<String> _expenseTags = ['Food', 'Transport', 'Bills', 'Other'];
+  List<String> _incomeTags = [];
+  List<String> _expenseTags = [];
 
   @override
   void initState() {
@@ -39,6 +39,90 @@ class _FinancePageState extends State<FinancePage>
         });
       }
     });
+    Future.microtask(() => _loadTags());
+  }
+
+  Future<void> _loadTags() async {
+    if (!mounted) return;
+    try {
+      final repo = TransactionRepository(Supabase.instance.client);
+      final fetchedIncomeTags = await repo.getTags('income');
+      final fetchedExpenseTags = await repo.getTags('expense');
+      if (mounted) {
+        setState(() {
+          if (fetchedIncomeTags.isNotEmpty) {
+            _incomeTags = fetchedIncomeTags;
+          }
+          if (fetchedExpenseTags.isNotEmpty) {
+            _expenseTags = fetchedExpenseTags;
+          }
+        });
+      }
+    } catch (e) {
+      // Tags failed to load, remain at defaults
+    }
+  }
+
+  void _showAddTagDialog(bool isIncome) {
+    final TextEditingController tagController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add New Tag'),
+          content: TextField(
+            controller: tagController,
+            decoration: const InputDecoration(
+              hintText: 'Enter tag name',
+            ),
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final tagText = tagController.text.trim();
+                if (tagText.isNotEmpty) {
+                  try {
+                    final repo = TransactionRepository(Supabase.instance.client);
+                    await repo.addTag(tagText, isIncome ? 'income' : 'expense');
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tag added successfully')),
+                      );
+                      setState(() {
+                        if (isIncome) {
+                          if (!_incomeTags.contains(tagText)) {
+                            _incomeTags.add(tagText);
+                          }
+                        } else {
+                          if (!_expenseTags.contains(tagText)) {
+                            _expenseTags.add(tagText);
+                          }
+                        }
+                        _selectedTag = tagText;
+                      });
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to add tag: $e')),
+                      );
+                    }
+                  }
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -246,10 +330,10 @@ class _FinancePageState extends State<FinancePage>
 
             // Amount Input
             Text(
-              "Amount",
+              "AMOUNT",
               style: TextStyle(
                 color: onSurfaceMuted,
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -287,10 +371,10 @@ class _FinancePageState extends State<FinancePage>
 
             // Details Input
             Text(
-              "Details",
+              "DETAILS",
               style: TextStyle(
                 color: onSurfaceMuted,
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -327,10 +411,10 @@ class _FinancePageState extends State<FinancePage>
 
             // Category Tag
             Text(
-              "Category Tag",
+              "TAG",
               style: TextStyle(
                 color: onSurfaceMuted,
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -380,7 +464,7 @@ class _FinancePageState extends State<FinancePage>
                   );
                 }),
                 InkWell(
-                  onTap: () {},
+                  onTap: () => _showAddTagDialog(isIncome),
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     width: 34,

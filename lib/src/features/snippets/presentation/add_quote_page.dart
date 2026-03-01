@@ -14,8 +14,90 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
   final TextEditingController _quoteController = TextEditingController();
   final TextEditingController _authorController = TextEditingController();
   
-  String _selectedCategory = 'Motivation';
-  final List<String> _categories = ['Motivation', 'Wisdom', 'Life'];
+  String? _selectedCategory;
+  List<String> _categories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => _loadTags());
+  }
+
+  Future<void> _loadTags() async {
+    if (!mounted) return;
+    try {
+      final tags = await ref.read(quoteRepositoryProvider).getTags('quote');
+      if (mounted) {
+        setState(() {
+          if (tags.isNotEmpty) {
+            _categories = tags;
+            if (!_categories.contains(_selectedCategory)) {
+              _selectedCategory = _categories.first;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      // Tags failed to load, remain at defaults
+    }
+  }
+
+  void _showAddTagDialog() {
+    final TextEditingController tagController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add New Tag'),
+          content: TextField(
+            controller: tagController,
+            decoration: const InputDecoration(
+              hintText: 'Enter tag name',
+            ),
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final tagText = tagController.text.trim();
+                if (tagText.isNotEmpty) {
+                  try {
+                    await ref
+                        .read(quoteRepositoryProvider)
+                        .addTag(tagText, 'quote');
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tag added successfully')),
+                      );
+                      setState(() {
+                        if (!_categories.contains(tagText)) {
+                          _categories.add(tagText);
+                        }
+                        _selectedCategory = tagText;
+                      });
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to add tag: $e')),
+                      );
+                    }
+                  }
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   void dispose() {
@@ -48,12 +130,6 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
             color: theme.textTheme.titleLarge?.color,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.history, color: clr.secondary),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -89,7 +165,7 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
                   
                   // Quote Area
                   Text(
-                    'Your Quote',
+                    'YOUR QUOTE',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -150,7 +226,7 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
                   
                   // Author Field
                   Text(
-                    'Author (Optional)',
+                    'AUTHOR (Optional)',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -183,7 +259,7 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
                   
                   // Category Field
                   Text(
-                    'Category',
+                    'Tags',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -227,7 +303,7 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
                         );
                       }),
                       InkWell(
-                        onTap: () {},
+                        onTap: _showAddTagDialog,
                         borderRadius: BorderRadius.circular(24),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

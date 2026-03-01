@@ -4,6 +4,7 @@ class Note {
   final String title;
   final String content;
   final String? tag;
+  final String? color;
   final DateTime? createdAt;
 
   Note({
@@ -12,6 +13,7 @@ class Note {
     required this.title,
     required this.content,
     this.tag,
+    this.color,
     this.createdAt,
   });
 
@@ -21,6 +23,7 @@ class Note {
     String? title,
     String? content,
     String? tag,
+    String? color,
     DateTime? createdAt,
   }) {
     return Note(
@@ -29,6 +32,7 @@ class Note {
       title: title ?? this.title,
       content: content ?? this.content,
       tag: tag ?? this.tag,
+      color: color ?? this.color,
       createdAt: createdAt ?? this.createdAt,
     );
   }

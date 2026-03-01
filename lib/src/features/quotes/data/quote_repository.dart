@@ -75,9 +75,36 @@ class SupabaseQuoteRepository implements QuoteRepository {
       content: row['content'] ?? '',
       author: row['author'],
       tag: row['tag'],
+      color: row['color'],
       createdAt: row['created_at'] != null
           ? DateTime.parse(row['created_at'])
           : null,
     );
+  }
+
+  @override
+  Future<void> addTag(String text, String feature) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await client.from('tags').insert({
+      'text': text,
+      'feature': feature,
+      'user_id': userId,
+    });
+  }
+
+  @override
+  Future<List<String>> getTags(String feature) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    final response = await client
+        .from('tags')
+        .select('text')
+        .eq('feature', feature)
+        .eq('user_id', userId);
+
+    return (response as List).map((row) => row['text'] as String).toList();
   }
 }

@@ -4,6 +4,7 @@ class Quote {
   final String content;
   final String? author;
   final String? tag;
+  final String? color;
   final DateTime? createdAt;
 
   Quote({
@@ -12,6 +13,7 @@ class Quote {
     required this.content,
     this.author,
     this.tag,
+    this.color,
     this.createdAt,
   });
 
@@ -21,6 +23,7 @@ class Quote {
     String? content,
     String? author,
     String? tag,
+    String? color,
     DateTime? createdAt,
   }) {
     return Quote(
@@ -29,6 +32,7 @@ class Quote {
       content: content ?? this.content,
       author: author ?? this.author,
       tag: tag ?? this.tag,
+      color: color ?? this.color,
       createdAt: createdAt ?? this.createdAt,
     );
   }

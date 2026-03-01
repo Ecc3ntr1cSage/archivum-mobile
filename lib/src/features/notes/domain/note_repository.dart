@@ -6,4 +6,6 @@ abstract class NoteRepository {
   Future<void> deleteNote(String id);
   Future<Note?> getNote(String id);
   Future<List<Note>> listNotes({String? userId});
+  Future<void> addTag(String text, String feature);
+  Future<List<String>> getTags(String feature);
 }

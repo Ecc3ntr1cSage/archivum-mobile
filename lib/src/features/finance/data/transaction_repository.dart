@@ -20,4 +20,28 @@ class TransactionRepository {
       'created_at': t.createdAt.toIso8601String(),
     });
   }
+
+  Future<void> addTag(String text, String feature) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await client.from('tags').insert({
+      'text': text,
+      'feature': feature,
+      'user_id': userId,
+    });
+  }
+
+  Future<List<String>> getTags(String feature) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    final response = await client
+        .from('tags')
+        .select('text')
+        .eq('feature', feature)
+        .eq('user_id', userId);
+
+    return (response as List).map((row) => row['text'] as String).toList();
+  }
 }

@@ -13,12 +13,87 @@ class AddNotePage extends ConsumerStatefulWidget {
 class _AddNotePageState extends ConsumerState<AddNotePage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  
+  List<String> _tags = [];
+  String? _selectedTag;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => _loadTags());
+  }
+
+  Future<void> _loadTags() async {
+    if (!mounted) return;
+    try {
+      final tags = await ref.read(noteRepositoryProvider).getTags('note');
+      if (mounted) {
+        setState(() {
+          _tags = tags;
+        });
+      }
+    } catch (e) {
+      // Tags failed to load, remain at defaults
+    }
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showAddTagDialog() async {
+    final TextEditingController tagController = TextEditingController();
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Tag'),
+          content: TextField(
+            controller: tagController,
+            decoration: const InputDecoration(hintText: 'Tag name'),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final text = tagController.text.trim();
+                if (text.isNotEmpty) {
+                  try {
+                    await ref
+                        .read(noteRepositoryProvider)
+                        .addTag(text, 'note');
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tag added successfully')),
+                      );
+                      setState(() {
+                        if (!_tags.contains(text)) _tags.add(text);
+                        _selectedTag = text;
+                      });
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to add tag: $e')),
+                      );
+                    }
+                  }
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -103,74 +178,59 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
                     spacing: 8,
                     runSpacing: 12,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: clr.primary.withOpacity(0.1),
+                      ..._tags.map((tag) {
+                        final isSelected = _selectedTag == tag;
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedTag = isSelected ? null : tag;
+                            });
+                          },
                           borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.label, size: 16, color: clr.primary),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Ideas',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: clr.primary,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isSelected ? clr.primary.withOpacity(0.1) : Colors.transparent,
+                              border: Border.all(
+                                color: isSelected ? clr.primary : (isDark ? Colors.grey[700]! : Colors.grey[300]!),
                               ),
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                          ],
-                        ),
-                      ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.label,
+                                  size: 16,
+                                  color: isSelected ? clr.primary : (isDark ? Colors.grey[400] : Colors.grey[500]),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  tag,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                    color: isSelected ? clr.primary : (isDark ? Colors.grey[400] : Colors.grey[500]),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
                       InkWell(
-                        onTap: () {},
-                        borderRadius: BorderRadius.circular(16),
+                        onTap: _showAddTagDialog,
+                        borderRadius: BorderRadius.circular(20),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             border: Border.all(
                               color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
                             ),
-                            borderRadius: BorderRadius.circular(16),
+                            shape: BoxShape.circle,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.add, size: 16, color: isDark ? clr.secondary : Colors.grey[400]),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Add Tag',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: isDark ? Colors.grey[400] : Colors.grey[500],
-                                ),
-                              ),
-                            ],
-                          ),
+                          child: Icon(Icons.add, size: 16, color: isDark ? clr.secondary : Colors.grey[500]),
                         ),
-                      ),
-                      Container(
-                        height: 16,
-                        width: 1,
-                        color: isDark ? Colors.grey[800] : Colors.grey[200],
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.schedule, size: 16, color: isDark ? clr.secondary : Colors.grey[400]),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Edited 2m ago',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark ? Colors.grey[400] : Colors.grey[400],
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -254,8 +314,7 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
                       final newNote = Note(
                         title: title,
                         content: content,
-                        // id is auto-generated by the database
-                        // tag: 'Ideas', // You could extract from the UI category selected later
+                        tag: _selectedTag,
                       );
                       
                       try {
