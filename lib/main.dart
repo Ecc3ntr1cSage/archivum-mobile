@@ -7,7 +7,7 @@ import 'src/core/constants/env.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print('main started');
+
   await dotenv.load();
 
   await Supabase.initialize(

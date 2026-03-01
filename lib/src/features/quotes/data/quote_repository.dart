@@ -43,12 +43,12 @@ class SupabaseQuoteRepository implements QuoteRepository {
   }
 
   @override
-  Future<void> deleteQuote(int id) async {
+  Future<void> deleteQuote(String id) async {
     await client.from('quotes').delete().eq('id', id);
   }
 
   @override
-  Future<Quote?> getQuote(int id) async {
+  Future<Quote?> getQuote(String id) async {
     final response = await client
         .from('quotes')
         .select()
@@ -59,7 +59,7 @@ class SupabaseQuoteRepository implements QuoteRepository {
   }
 
   @override
-  Future<List<Quote>> listQuotes({int? userId}) async {
+  Future<List<Quote>> listQuotes({String? userId}) async {
     var query = client.from('quotes').select();
     if (userId != null) {
       query = query.eq('user_id', userId);
@@ -70,8 +70,8 @@ class SupabaseQuoteRepository implements QuoteRepository {
 
   Quote _mapToQuote(Map<String, dynamic> row) {
     return Quote(
-      id: row['id'],
-      userId: row['user_id'],
+      id: row['id']?.toString(),
+      userId: row['user_id']?.toString(),
       content: row['content'] ?? '',
       author: row['author'],
       tag: row['tag'],

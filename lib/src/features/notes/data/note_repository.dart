@@ -43,12 +43,12 @@ class SupabaseNoteRepository implements NoteRepository {
   }
 
   @override
-  Future<void> deleteNote(int id) async {
+  Future<void> deleteNote(String id) async {
     await client.from('notes').delete().eq('id', id);
   }
 
   @override
-  Future<Note?> getNote(int id) async {
+  Future<Note?> getNote(String id) async {
     final response = await client
         .from('notes')
         .select()
@@ -59,7 +59,7 @@ class SupabaseNoteRepository implements NoteRepository {
   }
 
   @override
-  Future<List<Note>> listNotes({int? userId}) async {
+  Future<List<Note>> listNotes({String? userId}) async {
     var query = client.from('notes').select();
     if (userId != null) {
       query = query.eq('user_id', userId);
@@ -70,8 +70,8 @@ class SupabaseNoteRepository implements NoteRepository {
 
   Note _mapToNote(Map<String, dynamic> row) {
     return Note(
-      id: row['id'],
-      userId: row['user_id'],
+      id: row['id']?.toString(),
+      userId: row['user_id']?.toString(),
       title: row['title'] ?? '',
       content: row['content'] ?? '',
       tag: row['tag'],

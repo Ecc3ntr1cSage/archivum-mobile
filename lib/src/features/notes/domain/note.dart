@@ -1,6 +1,6 @@
 class Note {
-  final int? id;
-  final int? userId;
+  final String? id;
+  final String? userId;
   final String title;
   final String content;
   final String? tag;
@@ -16,8 +16,8 @@ class Note {
   });
 
   Note copyWith({
-    int? id,
-    int? userId,
+    String? id,
+    String? userId,
     String? title,
     String? content,
     String? tag,

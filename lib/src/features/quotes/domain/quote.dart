@@ -1,6 +1,6 @@
 class Quote {
-  final int? id;
-  final int? userId;
+  final String? id;
+  final String? userId;
   final String content;
   final String? author;
   final String? tag;
@@ -16,8 +16,8 @@ class Quote {
   });
 
   Quote copyWith({
-    int? id,
-    int? userId,
+    String? id,
+    String? userId,
     String? content,
     String? author,
     String? tag,
