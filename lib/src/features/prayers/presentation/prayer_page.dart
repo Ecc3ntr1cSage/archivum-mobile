@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'solat_history_page.dart';
+import '../data/prayer_repository.dart';
+import '../domain/prayer_day.dart';
+import 'prayer_history_page.dart';
 
 class SolatPage extends StatefulWidget {
   const SolatPage({super.key});
@@ -13,23 +16,15 @@ class _SolatPageState extends State<SolatPage> {
   static const Color _primary = Color(0xFF8A2CE2);
   static const Color _secondary = Color(0xFFFF8C00);
 
-  final Map<String, bool> _prayers = {
-    'Fajr': true,
-    'Dhuhr': true,
-    'Asr': true,
-    'Maghrib': true,
-    'Isha': false,
-  };
+  static const List<String> _prayerNames = [
+    'Fajr',
+    'Dhuhr',
+    'Asr',
+    'Maghrib',
+    'Isha',
+  ];
 
-  final Map<String, String> _prayerTimes = {
-    'Fajr': '05:42 AM',
-    'Dhuhr': '12:58 PM',
-    'Asr': '04:15 PM',
-    'Maghrib': '07:02 PM',
-    'Isha': '08:14 PM',
-  };
-
-  final Map<String, IconData> _prayerIcons = {
+  static const Map<String, IconData> _prayerIcons = {
     'Fajr': Icons.wb_twilight_outlined,
     'Dhuhr': Icons.light_mode_outlined,
     'Asr': Icons.wb_sunny_outlined,
@@ -37,65 +32,102 @@ class _SolatPageState extends State<SolatPage> {
     'Isha': Icons.dark_mode_outlined,
   };
 
-  void togglePrayer(String name) {
-    setState(() {
-      _prayers[name] = !(_prayers[name] ?? false);
-    });
+  late final PrayerRepository _repo;
+  late final DateTime _activeDate;
+
+  PrayerDay? _prayerDay;
+  bool _loading = true;
+  bool _toggling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _repo = PrayerRepository(Supabase.instance.client);
+    _activeDate = getActiveDate();
+    _loadPrayerDay();
   }
 
-  String _getFormattedDate() {
-    final now = DateTime.now();
-    const days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
+  Future<void> _loadPrayerDay() async {
+    setState(() => _loading = true);
+    try {
+      final day = await _repo.fetchOrCreatePrayerDay(_activeDate);
+      if (mounted) setState(() => _prayerDay = day);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load prayers: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _togglePrayer(String name) async {
+    if (_prayerDay == null || _toggling) return;
+    final currentValue = _prayerDay!.prayerValue(name);
+    final newValue = !currentValue;
+
+    // Optimistic update
+    setState(() {
+      _prayerDay = _prayerDay!.copyWithPrayer(name, newValue);
+      _toggling = true;
+    });
+
+    try {
+      final updated =
+          await _repo.updatePrayer(_prayerDay!.id!, name, newValue);
+      if (mounted) setState(() => _prayerDay = updated);
+    } catch (e) {
+      // Revert on error
+      if (mounted) {
+        setState(() => _prayerDay = _prayerDay!.copyWithPrayer(name, currentValue));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update prayer: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _toggling = false);
+    }
+  }
+
+  /// Format: "Logging prayer for 01/03 (Sunday)"
+  String _getLoggingLabel() {
+    const weekdays = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+      'Friday', 'Saturday', 'Sunday',
     ];
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]}';
+    final d = _activeDate;
+    final day = weekdays[d.weekday - 1];
+    final dd = d.day.toString().padLeft(2, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    return 'Logging prayer for $dd/$mm ($day)';
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF080808) : const Color(0xFFF6F6F8);
-    final completed = _prayers.values.where((v) => v).length;
-    final total = _prayers.length;
-    final progress = total > 0 ? completed / total : 0.0;
+    final completed = _prayerDay?.completedCount ?? 0;
+    final progress = _prayerDay?.progress ?? 0.0;
 
     return Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 16),
-              _buildProgressOverview(context, completed, total, progress),
-              const SizedBox(height: 16),
-              _buildGoalVisualization(context, progress),
-              const SizedBox(height: 16),
-              _buildSchedule(context),
-            ],
-          ),
-        ),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(context),
+                    const SizedBox(height: 16),
+                    _buildGoalVisualization(context, completed, progress),
+                    const SizedBox(height: 16),
+                    _buildSchedule(context),
+                  ],
+                ),
+              ),
       ),
     );
   }
@@ -104,7 +136,7 @@ class _SolatPageState extends State<SolatPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? const Color(0xFF0F172A) : Colors.white;
     final onSurface = isDark ? Colors.white : const Color(0xFF0F172A);
-    final onSurfaceDisabled = isDark
+    final onSurfaceMuted = isDark
         ? const Color(0xFF94A3B8)
         : const Color(0xFF64748B);
     final borderColor = isDark
@@ -150,12 +182,23 @@ class _SolatPageState extends State<SolatPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  _getFormattedDate(),
+                  _getLoggingLabel(),
                   style: TextStyle(
-                    color: onSurfaceDisabled,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    color: onSurface,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'reset at 5am',
+                  style: TextStyle(
+                    color: onSurfaceMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
@@ -189,174 +232,17 @@ class _SolatPageState extends State<SolatPage> {
     );
   }
 
-  Widget _buildProgressOverview(
-    BuildContext context,
-    int completed,
-    int total,
-    double progress,
-  ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
-    final onSurface = isDark ? Colors.white : const Color(0xFF0F172A);
-    final onSurfaceMuted = isDark
-        ? const Color(0xFF94A3B8)
-        : const Color(0xFF64748B);
-    final borderColor = isDark
-        ? const Color(0xFF334155)
-        : const Color(0xFFF1F5F9);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: _primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _primary.withValues(alpha: 0.2)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "DAILY STREAK",
-                    style: TextStyle(
-                      color: _primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        "12",
-                        style: TextStyle(
-                          color: onSurface,
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "Days",
-                        style: TextStyle(
-                          color: onSurfaceMuted,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  const Row(
-                    children: [
-                      Icon(Icons.trending_up, color: _secondary, size: 14),
-                      SizedBox(width: 4),
-                      Text(
-                        "Personal Best",
-                        style: TextStyle(
-                          color: _secondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: borderColor),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "COMPLETED",
-                    style: TextStyle(
-                      color: onSurfaceMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        "$completed/$total",
-                        style: TextStyle(
-                          color: onSurface,
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "Solat",
-                        style: TextStyle(
-                          color: onSurfaceMuted,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 6,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF334155)
-                          : const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: progress,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: _secondary,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGoalVisualization(BuildContext context, double progress) {
-    final completedCount = _prayers.values.where((v) => v).length;
-    final isAlmostThere = completedCount == _prayers.length - 1;
-    final nextPrayer =
-        _prayers.entries.where((e) => !e.value).firstOrNull?.key ?? "Solat";
-    final message = isAlmostThere
-        ? "Almost there! Just $nextPrayer left to complete your day."
-        : completedCount == _prayers.length
+  Widget _buildGoalVisualization(
+      BuildContext context, int completedCount, double progress) {
+    final nextPrayer = _prayerNames
+        .where((n) => !(_prayerDay?.prayerValue(n) ?? false))
+        .firstOrNull;
+    final isAlmostThere = completedCount == _prayerNames.length - 1;
+    final message = completedCount == _prayerNames.length
         ? "Masha'Allah! You have completed all prayers for today."
-        : "Keep going! Complete your prayers for today.";
+        : isAlmostThere && nextPrayer != null
+            ? "Almost there! Just $nextPrayer left to complete your day."
+            : "Keep going! Complete your prayers for today.";
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -410,7 +296,7 @@ class _SolatPageState extends State<SolatPage> {
                         ),
                         child: Text(
                           "${(progress * 100).toInt()}% Done",
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -506,27 +392,17 @@ class _SolatPageState extends State<SolatPage> {
             ],
           ),
           const SizedBox(height: 12),
-          ..._prayers.entries.map((entry) {
-            final name = entry.key;
-            final completed = entry.value;
-            final time = _prayerTimes[name]!;
+          ..._prayerNames.map((name) {
+            final done = _prayerDay?.prayerValue(name) ?? false;
             final icon = _prayerIcons[name]!;
-
-            if (completed) {
-              return Column(
-                children: [
-                  _buildPrayerItem(context, name, time, icon, completed),
-                  const SizedBox(height: 12),
-                ],
-              );
-            } else {
-              return Column(
-                children: [
-                  _buildUpcomingPrayerItem(context, name, time, icon),
-                  const SizedBox(height: 12),
-                ],
-              );
-            }
+            return Column(
+              children: [
+                done
+                    ? _buildCompletedPrayerItem(context, name, icon)
+                    : _buildUpcomingPrayerItem(context, name, icon),
+                const SizedBox(height: 12),
+              ],
+            );
           }),
           const SizedBox(height: 80),
         ],
@@ -534,25 +410,18 @@ class _SolatPageState extends State<SolatPage> {
     );
   }
 
-  Widget _buildPrayerItem(
-    BuildContext context,
-    String name,
-    String time,
-    IconData icon,
-    bool completed,
-  ) {
+  Widget _buildCompletedPrayerItem(
+      BuildContext context, String name, IconData icon) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final borderColor = isDark
-        ? const Color(0xFF334155)
-        : const Color(0xFFF1F5F9);
+    final borderColor =
+        isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
     final onSurface = isDark ? Colors.white : const Color(0xFF0F172A);
-    final onSurfaceMuted = isDark
-        ? const Color(0xFF94A3B8)
-        : const Color(0xFF64748B);
+    final onSurfaceMuted =
+        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return InkWell(
-      onTap: () => togglePrayer(name),
+      onTap: _toggling ? null : () => _togglePrayer(name),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -594,13 +463,13 @@ class _SolatPageState extends State<SolatPage> {
                     ),
                   ),
                   Text(
-                    "$time • Completed",
+                    "Completed • tap to undo",
                     style: TextStyle(color: onSurfaceMuted, fontSize: 12),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.check_circle, color: onSurface, size: 28),
+            Icon(Icons.check_circle, color: _primary, size: 28),
           ],
         ),
       ),
@@ -608,13 +477,9 @@ class _SolatPageState extends State<SolatPage> {
   }
 
   Widget _buildUpcomingPrayerItem(
-    BuildContext context,
-    String name,
-    String time,
-    IconData icon,
-  ) {
+      BuildContext context, String name, IconData icon) {
     return InkWell(
-      onTap: () => togglePrayer(name),
+      onTap: _toggling ? null : () => _togglePrayer(name),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -648,14 +513,14 @@ class _SolatPageState extends State<SolatPage> {
                 children: [
                   Text(
                     name,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
-                    "$time • Upcoming",
+                    "Not prayed yet • tap to mark",
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 12,

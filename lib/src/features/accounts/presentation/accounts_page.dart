@@ -202,29 +202,6 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: () {},
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shape: const CircleBorder(),
-                      padding: const EdgeInsets.all(8),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Account Credentials',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
-                    ),
-                  ),
                   ElevatedButton(
                     onPressed: () async {
                       final newItem = await Navigator.of(context).push(

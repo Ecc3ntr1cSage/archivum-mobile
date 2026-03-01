@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'add_note_page.dart';
 import 'add_quote_page.dart';
+import '../../notes/presentation/note_detail_page.dart';
+import '../../quotes/presentation/quote_detail_page.dart';
 import '../../indexes/presentation/add_index_page.dart';
 import '../../indexes/presentation/index_detail_page.dart';
 import '../../../core/providers/snippet_repository_provider.dart';
@@ -246,127 +248,109 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
       }
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            height: 128,
-            decoration: BoxDecoration(
-              color: headerColor.withOpacity(0.1),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  headerColor.withOpacity(0.3),
-                  Colors.transparent,
-                ],
-              ),
+    void openNote() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NoteDetailPage(note: note),
+        ),
+      ).then((_) => ref.invalidate(notesListProvider));
+    }
+
+    return GestureDetector(
+      onTap: openNote,
+      child: Container(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        note.title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: isDark ? Colors.white : Colors.black,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      _formatDateTime(note.createdAt),
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  note.content,
-                  style: TextStyle(
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    if (note.tag != null && note.tag!.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF3D2D4D)
-                              : Colors.grey[200],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
                         child: Text(
-                          note.tag!,
+                          note.title,
                           style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey[400],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: isDark ? Colors.white : Colors.black,
+                            height: 1.2,
                           ),
                         ),
-                      )
-                    else
-                      SizedBox(
-                        width: 40,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: clr.secondary,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: isDark
-                                        ? const Color(0xFF2A1F36)
-                                        : Colors.white,
-                                    width: 2),
-                              ),
+                      ),
+                      Text(
+                        _formatDateTime(note.createdAt),
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    note.content,
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (note.tag != null && note.tag!.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF3D2D4D)
+                                : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            note.tag!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[400],
                             ),
-                            Positioned(
-                              left: 16,
-                              child: Container(
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: 40,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
                                 width: 24,
                                 height: 24,
                                 decoration: BoxDecoration(
-                                  color: clr.primary,
+                                  color: clr.secondary,
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                       color: isDark
@@ -375,31 +359,47 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                                       width: 2),
                                 ),
                               ),
-                            ),
+                              Positioned(
+                                left: 16,
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: clr.primary,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: isDark
+                                            ? const Color(0xFF2A1F36)
+                                            : Colors.white,
+                                        width: 2),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      InkWell(
+                        onTap: openNote,
+                        child: Row(
+                          children: [
+                            Text('Open Note',
+                                style: TextStyle(
+                                    color: clr.primary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.arrow_forward,
+                                size: 16, color: clr.primary),
                           ],
                         ),
                       ),
-                    InkWell(
-                      onTap: () {},
-                      child: Row(
-                        children: [
-                          Text('Open Note',
-                              style: TextStyle(
-                                  color: clr.primary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14)),
-                          const SizedBox(width: 4),
-                          Icon(Icons.arrow_forward,
-                              size: 16, color: clr.primary),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          )
-        ],
+                    ],
+                  ),
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -421,126 +421,125 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
       }
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned(
-            top: -16,
-            left: -16,
-            child: Icon(
-              Icons.format_quote,
-              size: 120,
-              color: quoteColor.withOpacity(0.1),
+    void openQuote() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuoteDetailPage(quote: quote),
+        ),
+      ).then((_) => ref.invalidate(quotesListProvider));
+    }
+
+    return GestureDetector(
+      onTap: openQuote,
+      child: Container(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: quoteColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Positioned(
+              top: -16,
+              left: -16,
+              child: Icon(
+                Icons.format_quote,
+                size: 120,
+                color: quoteColor.withOpacity(0.1),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: quoteColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Quote',
+                          style: TextStyle(
+                            color: quoteColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
                       ),
+                      Text(
+                        _formatDateTime(quote.createdAt),
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '"${quote.content}"',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontStyle: FontStyle.italic,
+                      color: isDark ? Colors.grey[100] : Colors.black87,
+                      height: 1.5,
+                    ),
+                  ),
+                  if (quote.author != null && quote.author!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
                       child: Text(
-                        'Quote',
+                        '— ${quote.author}',
                         style: TextStyle(
                           color: quoteColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                    Text(
-                      _formatDateTime(quote.createdAt),
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 12,
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      InkWell(
+                        onTap: openQuote,
+                        child: Row(
+                          children: [
+                            Text('Open Quote',
+                                style: TextStyle(
+                                    color: quoteColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.arrow_forward,
+                                size: 16, color: quoteColor),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '"${quote.content}"',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    fontStyle: FontStyle.italic,
-                    color: isDark ? Colors.grey[100] : Colors.black87,
-                    height: 1.5,
+                    ],
                   ),
-                ),
-                if (quote.author != null && quote.author!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16.0),
-                    child: Text(
-                      '— ${quote.author}',
-                      style: TextStyle(
-                        color: quoteColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF1E293B)
-                            : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: IconButton(
-                        iconSize: 18,
-                        onPressed: () {},
-                        icon: Icon(Icons.share, color: Colors.grey[400]),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF1E293B)
-                            : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: IconButton(
-                        iconSize: 18,
-                        onPressed: () {},
-                        icon:
-                            Icon(Icons.favorite, color: Colors.grey[400]),
-                      ),
-                    ),
-                  ],
-                )
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

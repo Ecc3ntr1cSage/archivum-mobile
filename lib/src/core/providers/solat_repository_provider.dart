@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/solat/data/solat_repository.dart';
+import '../../features/prayers/data/prayer_repository.dart';
 import 'supabase_provider.dart';
 
 final solatRepositoryProvider = Provider<SolatRepository>((ref) {

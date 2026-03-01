@@ -185,6 +185,85 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
   LoginMethod _loginMethod = LoginMethod.emailPassword;
   SsoProvider? _selectedProvider;
 
+  List<String> _tags = [];
+  String? _selectedTag;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => _loadTags());
+  }
+
+  Future<void> _loadTags() async {
+    if (!mounted) return;
+    try {
+      final tags = await ref.read(accountRepositoryProvider).getTags('credential');
+      if (mounted) {
+        setState(() {
+          _tags = tags;
+          // Ensure no tag is selected by default after loading
+          if (!_tags.contains(_selectedTag)) {
+            _selectedTag = null;
+          }
+        });
+      }
+    } catch (e) {
+      // Tags failed to load, remain at defaults
+    }
+  }
+
+  Future<void> _showAddTagDialog() async {
+    final TextEditingController tagController = TextEditingController();
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Tag'),
+          content: TextField(
+            controller: tagController,
+            decoration: const InputDecoration(hintText: 'Tag name'),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final text = tagController.text.trim();
+                if (text.isNotEmpty) {
+                  try {
+                    await ref
+                        .read(accountRepositoryProvider)
+                        .addTag(text, 'credential');
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tag added successfully')),
+                      );
+                      setState(() {
+                        if (!_tags.contains(text)) _tags.add(text);
+                        _selectedTag = text;
+                      });
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to add tag: $e')),
+                      );
+                    }
+                  }
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -223,6 +302,7 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
         provider: _selectedProvider != null && _loginMethod == LoginMethod.sso
             ? _selectedProvider.toString().split('.').last
             : null,
+        tags: _selectedTag,
       );
 
       final repository = ref.read(accountRepositoryProvider);
@@ -472,10 +552,95 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                 ],
 
-                const SizedBox(height: 8),
+                const Text(
+                  'Tags',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _tags.contains(_selectedTag) ? _selectedTag : null,
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Color(0xFF94A3B8),
+                        ),
+                        dropdownColor: isDark
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFF7F6F8),
+                        style: TextStyle(
+                          color:
+                              isDark ? Colors.white : const Color(0xFF0F172A),
+                          fontSize: 16,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Select a tag',
+                          hintStyle: const TextStyle(color: Color(0xFF64748B)),
+                          filled: true,
+                          fillColor: isDark
+                              ? const Color(0xFF1E293B).withValues(alpha: 0.5)
+                              : const Color(0xFFF7F6F8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                BorderSide(color: primary.withValues(alpha: 0.2)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: primary, width: 2),
+                          ),
+                        ),
+                        items: _tags.map((tag) {
+                          return DropdownMenuItem(
+                            value: tag,
+                            child: Text(tag),
+                          );
+                        }).toList(),
+                        onChanged: (v) {
+                          setState(() {
+                            _selectedTag = v;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    InkWell(
+                      onTap: _showAddTagDialog,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        height: 50, // Match typical input height
+                        width: 50,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF1E293B).withValues(alpha: 0.5)
+                              : const Color(0xFFF7F6F8),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: primary.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.add,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
                 ElevatedButton(
                   onPressed: _isLoading ? null : _saveCredential,
                   style: ElevatedButton.styleFrom(

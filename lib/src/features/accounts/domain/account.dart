@@ -7,6 +7,7 @@ class Account {
   final String? username;
   final String? password;
   final String? provider;
+  final String? tags;
   final DateTime? createdAt;
 
   Account({
@@ -18,6 +19,7 @@ class Account {
     this.username,
     this.password,
     this.provider,
+    this.tags,
     this.createdAt,
   });
 
@@ -31,6 +33,7 @@ class Account {
       if (username != null) 'username': username,
       if (password != null) 'password': password,
       if (provider != null) 'provider': provider,
+      if (tags != null) 'tags': tags,
     };
   }
 
@@ -44,6 +47,7 @@ class Account {
       username: json['username'],
       password: json['password'],
       provider: json['provider'],
+      tags: json['tags'],
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
     );
   }

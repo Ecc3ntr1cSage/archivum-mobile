@@ -3,7 +3,7 @@ import '../core/widgets/bottom_nav.dart';
 import '../features/snippets/presentation/snippets_page.dart';
 import '../features/accounts/presentation/accounts_page.dart';
 import '../features/home/presentation/home_page.dart';
-import '../features/solat/presentation/solat_page.dart';
+import '../features/prayers/presentation/prayer_page.dart';
 import '../features/finance/presentation/finance_page.dart';
 
 class AppShell extends StatefulWidget {
