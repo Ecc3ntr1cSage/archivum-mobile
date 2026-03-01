@@ -6,10 +6,15 @@ class TransactionRepository {
   TransactionRepository(this.client);
 
   Future<void> createTransaction(TransactionModel t) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception('User is not logged in');
+    }
+
     await client.from('transactions').insert({
-      'id': t.id,
-      'type': t.type.toString().split('.').last,
-      'amount': t.amount,
+      'user_id': userId,
+      'status': t.type.index,
+      'amount': (t.amount * 100).toInt(),
       'details': t.details,
       'tag': t.tag,
       'created_at': t.createdAt.toIso8601String(),

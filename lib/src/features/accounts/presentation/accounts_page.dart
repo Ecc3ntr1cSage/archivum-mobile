@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/account_repository_provider.dart';
 import 'add_credential_page.dart';
 
 // Reusable credential card for saved items
@@ -7,8 +9,8 @@ class CredentialCard extends StatelessWidget {
 
   const CredentialCard({required this.item, super.key});
 
-  IconData _getIconForService(String service) {
-    switch (service.toLowerCase()) {
+  IconData _getIconForTitle(String title) {
+    switch (title.toLowerCase()) {
       case 'github':
         return Icons.terminal;
       case 'gmail':
@@ -26,14 +28,14 @@ class CredentialCard extends StatelessWidget {
     final primary = const Color(0xFF8A2CE2);
     final accentOrange = const Color(0xFFF97316);
 
-    final isSso = item['method'] == 'SSO';
+    final isSso = item['method']?.toLowerCase() == 'sso';
     final cardBgColor = isDark
         ? const Color(0xFF0F172A).withValues(alpha: 0.4)
         : const Color(0xFFF7F6F8);
     final hoverBgColor = primary.withValues(alpha: 0.05);
 
     // Some simple mock logic to color code icons
-    final isOrangeTheme = item['service']?.toLowerCase() == 'gmail';
+    final isOrangeTheme = item['title']?.toLowerCase() == 'gmail';
     final themeColor = isOrangeTheme ? accentOrange : primary;
 
     return Material(
@@ -61,7 +63,7 @@ class CredentialCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Icon(
-                    _getIconForService(item['service'] ?? ''),
+                    _getIconForTitle(item['title'] ?? ''),
                     color: themeColor,
                   ),
                 ),
@@ -74,7 +76,7 @@ class CredentialCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          item['service'] ?? '',
+                          item['title'] ?? '',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -132,38 +134,48 @@ class CredentialCard extends StatelessWidget {
   }
 }
 
-class AccountsPage extends StatefulWidget {
+class AccountsPage extends ConsumerStatefulWidget {
   const AccountsPage({super.key});
 
   @override
-  State<AccountsPage> createState() => _AccountsPageState();
+  ConsumerState<AccountsPage> createState() => _AccountsPageState();
 }
 
-class _AccountsPageState extends State<AccountsPage> {
-  // Mock data as in the HTML design
-  final List<Map<String, String>> _saved = [
-    {
-      'service': 'GitHub',
-      'email': 'johndoe@example.com',
-      'username': 'johndoe',
-      'method': 'Username',
-      'provider': '',
-    },
-    {
-      'service': 'Gmail',
-      'email': 'johndoe@gmail.com',
-      'username': '',
-      'method': 'SSO',
-      'provider': 'Google',
-    },
-    {
-      'service': 'Adobe Creative Cloud',
-      'email': 'creative.mind@studio.com',
-      'username': '',
-      'method': 'Username',
-      'provider': '',
-    },
-  ];
+class _AccountsPageState extends ConsumerState<AccountsPage> {
+  List<Map<String, String>> _saved = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAccounts();
+  }
+
+  Future<void> _fetchAccounts() async {
+    try {
+      final repository = ref.read(accountRepositoryProvider);
+      final accounts = await repository.listAccounts();
+      if (mounted) {
+        setState(() {
+          _saved = accounts.map((a) => <String, String>{
+            'title': a.title,
+            'email': a.email ?? '',
+            'username': a.username ?? '',
+            'method': a.method,
+            'provider': a.provider ?? '',
+          }).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load accounts: \${e.toString()}')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -221,9 +233,7 @@ class _AccountsPageState extends State<AccountsPage> {
                         ),
                       );
                       if (newItem != null && newItem is Map<String, String>) {
-                        setState(() {
-                          _saved.insert(0, newItem);
-                        });
+                        _fetchAccounts();
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -283,18 +293,26 @@ class _AccountsPageState extends State<AccountsPage> {
             const SizedBox(height: 16),
 
             Column(
-              children: _saved.isEmpty
+              children: _isLoading
                   ? [
                       Container(
                         padding: const EdgeInsets.all(24),
                         alignment: Alignment.center,
-                        child: const Text(
-                          'No credentials saved yet',
-                          style: TextStyle(color: Color(0xFF64748B)),
-                        ),
+                        child: const CircularProgressIndicator(),
                       ),
                     ]
-                  : _saved.map((e) => CredentialCard(item: e)).toList(),
+                  : _saved.isEmpty
+                      ? [
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              'No credentials saved yet',
+                              style: TextStyle(color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ]
+                      : _saved.map((e) => CredentialCard(item: e)).toList(),
             ),
 
             const SizedBox(height: 80), // Padding for bottom navbar

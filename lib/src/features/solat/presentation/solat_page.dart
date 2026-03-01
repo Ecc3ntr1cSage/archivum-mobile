@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'solat_history_page.dart';
+
 class SolatPage extends StatefulWidget {
   const SolatPage({super.key});
 
@@ -120,10 +122,21 @@ class _SolatPageState extends State<SolatPage> {
         children: [
           SizedBox(
             width: 48,
-            child: Icon(
-              Icons.calendar_month_outlined,
-              color: _primary,
-              size: 30,
+            child: IconButton(
+              icon: const Icon(
+                Icons.calendar_month_outlined,
+                color: _primary,
+                size: 30,
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SolatHistoryPage(),
+                  ),
+                );
+              },
+              padding: EdgeInsets.zero,
             ),
           ),
           Expanded(
@@ -463,7 +476,14 @@ class _SolatPageState extends State<SolatPage> {
                 ),
               ),
               InkWell(
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SolatHistoryPage(),
+                    ),
+                  );
+                },
                 borderRadius: BorderRadius.circular(4),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),

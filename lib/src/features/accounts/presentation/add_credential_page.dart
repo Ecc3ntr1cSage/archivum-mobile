@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/account_repository_provider.dart';
+import '../../../core/providers/supabase_provider.dart';
+import '../domain/account.dart';
 
-enum LoginMethod { username, sso }
+enum LoginMethod { emailPassword, sso }
 
 enum SsoProvider { google, github, facebook }
 
@@ -164,48 +168,90 @@ class SsoProviderButton extends StatelessWidget {
   }
 }
 
-class AddCredentialPage extends StatefulWidget {
+class AddCredentialPage extends ConsumerStatefulWidget {
   const AddCredentialPage({super.key});
 
   @override
-  State<AddCredentialPage> createState() => _AddCredentialPageState();
+  ConsumerState<AddCredentialPage> createState() => _AddCredentialPageState();
 }
 
-class _AddCredentialPageState extends State<AddCredentialPage> {
+class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
+  bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _serviceController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  LoginMethod _loginMethod = LoginMethod.username;
+  LoginMethod _loginMethod = LoginMethod.emailPassword;
   SsoProvider? _selectedProvider;
 
   @override
   void dispose() {
-    _serviceController.dispose();
+    _titleController.dispose();
     _emailController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _saveCredential() {
-    if (_serviceController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide service name')),
-      );
+  Future<void> _saveCredential() async {
+    if (_titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please provide a title')));
       return;
     }
-    final item = {
-      'service': _serviceController.text.trim(),
-      'email': _emailController.text.trim(),
-      'username': _usernameController.text.trim(),
-      'method': _loginMethod == LoginMethod.username ? 'Username' : 'SSO',
-      'provider': _selectedProvider != null
-          ? _selectedProvider.toString().split('.').last
-          : '',
-    };
-    Navigator.of(context).pop(item);
+
+    setState(() => _isLoading = true);
+
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+
+      final account = Account(
+        userId: supabase.auth.currentUser?.id,
+        title: _titleController.text.trim(),
+        email: _emailController.text.trim().isNotEmpty && _loginMethod == LoginMethod.emailPassword
+            ? _emailController.text.trim()
+            : null,
+        username: _usernameController.text.trim().isNotEmpty && _loginMethod == LoginMethod.emailPassword
+            ? _usernameController.text.trim()
+            : null,
+        password: _passwordController.text.trim().isNotEmpty && _loginMethod == LoginMethod.emailPassword
+            ? _passwordController.text.trim()
+            : null,
+        method: _loginMethod == LoginMethod.emailPassword ? 'email-password' : 'sso',
+        provider: _selectedProvider != null && _loginMethod == LoginMethod.sso
+            ? _selectedProvider.toString().split('.').last
+            : null,
+      );
+
+      final repository = ref.read(accountRepositoryProvider);
+      final newAccount = await repository.createAccount(account);
+
+      if (mounted) {
+        // Convert inserted account to Map<String, String> to match AccountsPage
+        final result = <String, String>{
+          'title': newAccount.title,
+          'email': newAccount.email ?? '',
+          'username': newAccount.username ?? '',
+          'method': newAccount.method,
+          'provider': newAccount.provider ?? '',
+        };
+        Navigator.of(context).pop(result);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save credential: \${e.toString()}'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Widget _ssoGrid() {
@@ -313,24 +359,11 @@ class _AddCredentialPageState extends State<AddCredentialPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 InputField(
-                  controller: _serviceController,
-                  label: 'Account Name',
+                  controller: _titleController,
+                  label: 'Account Title',
                   hint: 'e.g. GitHub, Netflix',
                 ),
                 const SizedBox(height: 16),
-                InputField(
-                  controller: _emailController,
-                  label: 'Email',
-                  hint: 'Enter registered email',
-                ),
-                const SizedBox(height: 16),
-                InputField(
-                  controller: _usernameController,
-                  label: 'Username',
-                  hint: 'Enter username (optional)',
-                ),
-                const SizedBox(height: 16),
-
                 // Login Method Dropdown
                 const Text(
                   'Login Method',
@@ -376,23 +409,35 @@ class _AddCredentialPageState extends State<AddCredentialPage> {
                   ),
                   items: const [
                     DropdownMenuItem(
-                      value: LoginMethod.username,
-                      child: Text('Username/Password'),
+                      value: LoginMethod.emailPassword,
+                      child: Text('Email-Password'),
                     ),
                     DropdownMenuItem(
                       value: LoginMethod.sso,
-                      child: Text('SSO (Single Sign-On)'),
+                      child: Text('SSO'),
                     ),
                   ],
                   onChanged: (v) {
                     setState(() {
-                      _loginMethod = v ?? LoginMethod.username;
+                      _loginMethod = v ?? LoginMethod.emailPassword;
                     });
                   },
                 ),
                 const SizedBox(height: 16),
 
-                if (_loginMethod == LoginMethod.username) ...[
+                if (_loginMethod == LoginMethod.emailPassword) ...[
+                  InputField(
+                    controller: _emailController,
+                    label: 'Email',
+                    hint: 'Enter registered email',
+                  ),
+                  const SizedBox(height: 16),
+                  InputField(
+                    controller: _usernameController,
+                    label: 'Username',
+                    hint: 'Enter username (optional)',
+                  ),
+                  const SizedBox(height: 16),
                   InputField(
                     controller: _passwordController,
                     label: 'Password',
@@ -407,9 +452,7 @@ class _AddCredentialPageState extends State<AddCredentialPage> {
                     padding: const EdgeInsets.only(top: 8),
                     decoration: BoxDecoration(
                       border: Border(
-                        top: BorderSide(
-                          color: primary.withValues(alpha: 0.05),
-                        ),
+                        top: BorderSide(color: primary.withValues(alpha: 0.05)),
                       ),
                     ),
                     child: Column(
@@ -434,7 +477,7 @@ class _AddCredentialPageState extends State<AddCredentialPage> {
 
                 const SizedBox(height: 8),
                 ElevatedButton(
-                  onPressed: _saveCredential,
+                  onPressed: _isLoading ? null : _saveCredential,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primary,
                     foregroundColor: Colors.white,
@@ -445,13 +488,24 @@ class _AddCredentialPageState extends State<AddCredentialPage> {
                     elevation: 8,
                     shadowColor: primary.withValues(alpha: 0.3),
                   ),
-                  child: const Text(
-                    'Save Credential',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Text(
+                          'Save Credential',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                 ),
               ],
             ),

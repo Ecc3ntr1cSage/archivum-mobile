@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../domain/transaction.dart';
+import '../data/transaction_repository.dart';
 class FinancePage extends StatefulWidget {
   const FinancePage({super.key});
 
@@ -47,32 +49,67 @@ class _FinancePageState extends State<FinancePage>
     super.dispose();
   }
 
-  void _save(bool isIncome) {
+  Future<void> _save(bool isIncome) async {
     final a = _amount.text.trim();
     final d = _details.text.trim();
     final t = _selectedTag ?? 'Other';
     if (a.isEmpty) return;
-    final item = {'amount': a, 'details': d, 'tag': t};
-    setState(() {
-      if (isIncome) {
-        _income.insert(0, item);
-      } else {
-        _expense.insert(0, item);
-      }
-      _amount.clear();
-      _details.clear();
-      _selectedTag = null;
-    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${isIncome ? 'Income' : 'Expense'} logged successfully!',
-        ),
-        backgroundColor: isIncome ? _incomeColor : _expenseColor,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    final parsedAmount = double.tryParse(a);
+    if (parsedAmount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid amount'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    try {
+      final transaction = TransactionModel(
+        id: '', 
+        type: isIncome ? TransactionType.income : TransactionType.expense,
+        amount: parsedAmount,
+        details: d,
+        tag: t,
+        createdAt: DateTime.now(),
+      );
+      
+      final repo = TransactionRepository(Supabase.instance.client);
+      await repo.createTransaction(transaction);
+
+      final item = {'amount': a, 'details': d, 'tag': t};
+      setState(() {
+        if (isIncome) {
+          _income.insert(0, item);
+        } else {
+          _expense.insert(0, item);
+        }
+        _amount.clear();
+        _details.clear();
+        _selectedTag = null;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${isIncome ? 'Income' : 'Expense'} logged successfully!',
+            ),
+            backgroundColor: isIncome ? _incomeColor : _expenseColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   @override
