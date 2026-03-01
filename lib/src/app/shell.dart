@@ -20,7 +20,7 @@ class _AppShellState extends State<AppShell> {
     SnippetsPage(),
     AccountsPage(),
     HomePage(),
-    SolatPage(),
+    PrayerPage(),
     FinancePage(),
   ];
 

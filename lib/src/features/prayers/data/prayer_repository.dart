@@ -60,4 +60,35 @@ class PrayerRepository {
         .single();
     return PrayerDay.fromMap(updated);
   }
+
+  /// Fetch all prayer records for [year]/[month].
+  Future<List<PrayerDay>> fetchPrayersForMonth(int year, int month) async {
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final from =
+        '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-01';
+    final to =
+        '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+
+    final res = await client
+        .from('prayers')
+        .select()
+        .gte('date', from)
+        .lte('date', to)
+        .order('date');
+
+    return (res as List)
+        .map((m) => PrayerDay.fromMap(m as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Returns (totalPrayersCompleted, totalDaysRecorded) across all time.
+  Future<(int, int)> fetchAllTimeStats() async {
+    final res = await client.from('prayers').select();
+    final days = (res as List)
+        .map((m) => PrayerDay.fromMap(m as Map<String, dynamic>))
+        .toList();
+    final totalCompleted =
+        days.fold<int>(0, (sum, d) => sum + d.completedCount);
+    return (totalCompleted, days.length);
+  }
 }

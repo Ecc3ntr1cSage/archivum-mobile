@@ -16,7 +16,7 @@ class BottomNav extends StatelessWidget {
         BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Snippets'),
         BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Accounts'),
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'Solat'),
+        BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'Prayer'),
         BottomNavigationBarItem(icon: Icon(Icons.pie_chart), label: 'Finance'),
       ],
     );

@@ -5,14 +5,14 @@ import '../data/prayer_repository.dart';
 import '../domain/prayer_day.dart';
 import 'prayer_history_page.dart';
 
-class SolatPage extends StatefulWidget {
-  const SolatPage({super.key});
+class PrayerPage extends StatefulWidget {
+  const PrayerPage({super.key});
 
   @override
-  State<SolatPage> createState() => _SolatPageState();
+  State<PrayerPage> createState() => _PrayerPageState();
 }
 
-class _SolatPageState extends State<SolatPage> {
+class _PrayerPageState extends State<PrayerPage> {
   static const Color _primary = Color(0xFF8A2CE2);
   static const Color _secondary = Color(0xFFFF8C00);
 
@@ -164,7 +164,7 @@ class _SolatPageState extends State<SolatPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const SolatHistoryPage(),
+                    builder: (context) => const PrayerHistoryPage(),
                   ),
                 );
               },
@@ -366,7 +366,7 @@ class _SolatPageState extends State<SolatPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const SolatHistoryPage(),
+                      builder: (context) => const PrayerHistoryPage(),
                     ),
                   );
                 },
