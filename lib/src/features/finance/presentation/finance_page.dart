@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/transaction.dart';
 import '../data/transaction_repository.dart';
+import 'financial_history_page.dart';
+
 class FinancePage extends StatefulWidget {
   const FinancePage({super.key});
 
@@ -517,7 +519,14 @@ class _FinancePageState extends State<FinancePage>
             // View History
             Center(
               child: InkWell(
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const FinancialHistoryPage(),
+                    ),
+                  );
+                },
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(

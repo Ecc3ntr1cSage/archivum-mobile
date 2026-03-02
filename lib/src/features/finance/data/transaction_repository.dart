@@ -44,4 +44,26 @@ class TransactionRepository {
 
     return (response as List).map((row) => row['text'] as String).toList();
   }
+
+  Future<List<TransactionModel>> getTransactions() async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    final response = await client
+        .from('transactions')
+        .select()
+        .eq('user_id', userId)
+        .order('created_at', ascending: false);
+
+    return (response as List).map((row) {
+      return TransactionModel(
+        id: row['id']?.toString() ?? '',
+        type: TransactionType.values[row['status'] as int],
+        amount: (row['amount'] as int) / 100,
+        details: row['details'] as String,
+        tag: row['tag'] as String,
+        createdAt: DateTime.parse(row['created_at'] as String),
+      );
+    }).toList();
+  }
 }
