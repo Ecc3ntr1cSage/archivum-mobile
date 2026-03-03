@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'add_note_page.dart';
-import 'add_quote_page.dart';
+import '../../notes/presentation/add_note_page.dart';
+import '../../quotes/presentation/add_quote_page.dart';
 import '../../notes/presentation/note_detail_page.dart';
 import '../../quotes/presentation/quote_detail_page.dart';
 import '../../indexes/presentation/add_index_page.dart';

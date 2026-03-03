@@ -478,7 +478,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
       onTap: () => _toggleViewItemStatus(item),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: surfaceColor,
           borderRadius: BorderRadius.circular(12),
@@ -513,7 +513,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
               child: Text(
                 item.item,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   color: item.isChecked
                       ? (isDark ? Colors.grey[500] : Colors.grey[400])
                       : (isDark ? Colors.white : Colors.black87),
@@ -524,24 +524,24 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
               ),
             ),
             // Index number
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withOpacity(0.05)
-                    : Colors.grey[100],
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '#${index + 1}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[500],
-                ),
-              ),
-            ),
+            // Container(
+            //   padding:
+            //       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            //   decoration: BoxDecoration(
+            //     color: isDark
+            //         ? Colors.white.withOpacity(0.05)
+            //         : Colors.grey[100],
+            //     borderRadius: BorderRadius.circular(4),
+            //   ),
+            //   child: Text(
+            //     '#${index + 1}',
+            //     style: TextStyle(
+            //       fontSize: 11,
+            //       fontWeight: FontWeight.w500,
+            //       color: Colors.grey[500],
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),
