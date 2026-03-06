@@ -85,7 +85,7 @@ class _AddIndexPageState extends ConsumerState<AddIndexPage> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: bgColor.withOpacity(0.8),
+        backgroundColor: bgColor.withValues(alpha:0.8),
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: Padding(
@@ -182,7 +182,7 @@ class _AddIndexPageState extends ConsumerState<AddIndexPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: clr.primary.withOpacity(0.1),
+                        color: clr.primary.withValues(alpha:0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -284,7 +284,7 @@ class _AddIndexPageState extends ConsumerState<AddIndexPage> {
                   onPressed: _addItem,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: BorderSide(color: clr.secondary.withOpacity(0.3), width: 2, style: BorderStyle.solid),
+                    side: BorderSide(color: clr.secondary.withValues(alpha:0.3), width: 2, style: BorderStyle.solid),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -313,7 +313,7 @@ class _AddIndexPageState extends ConsumerState<AddIndexPage> {
                   end: Alignment.topCenter,
                   colors: [
                     bgColor,
-                    bgColor.withOpacity(0.9),
+                    bgColor.withValues(alpha:0.9),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.7, 1.0],
@@ -333,7 +333,7 @@ class _AddIndexPageState extends ConsumerState<AddIndexPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 4,
-                      shadowColor: clr.primary.withOpacity(0.4),
+                      shadowColor: clr.primary.withValues(alpha:0.4),
                     ),
                     icon: _isSaving
                         ? const SizedBox(

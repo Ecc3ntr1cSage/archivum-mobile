@@ -221,7 +221,7 @@ class _QuoteDetailPageState extends ConsumerState<QuoteDetailPage> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: bgColor.withOpacity(0.8),
+        backgroundColor: bgColor.withValues(alpha:0.8),
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: Padding(
@@ -312,20 +312,20 @@ class _QuoteDetailPageState extends ConsumerState<QuoteDetailPage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  quoteColor.withOpacity(isDark ? 0.15 : 0.1),
-                  quoteColor.withOpacity(isDark ? 0.05 : 0.02),
+                  quoteColor.withValues(alpha:isDark ? 0.15 : 0.1),
+                  quoteColor.withValues(alpha:isDark ? 0.05 : 0.02),
                 ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: quoteColor.withOpacity(isDark ? 0.2 : 0.15)),
+                  color: quoteColor.withValues(alpha:isDark ? 0.2 : 0.15)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: quoteColor.withOpacity(0.15),
+                    color: quoteColor.withValues(alpha:0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child:
@@ -343,7 +343,7 @@ class _QuoteDetailPageState extends ConsumerState<QuoteDetailPage> {
                               horizontal: 8, vertical: 2),
                           margin: const EdgeInsets.only(bottom: 6),
                           decoration: BoxDecoration(
-                            color: quoteColor.withOpacity(0.15),
+                            color: quoteColor.withValues(alpha:0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -388,7 +388,7 @@ class _QuoteDetailPageState extends ConsumerState<QuoteDetailPage> {
                   child: Icon(
                     Icons.format_quote,
                     size: 80,
-                    color: quoteColor.withOpacity(0.08),
+                    color: quoteColor.withValues(alpha:0.08),
                   ),
                 ),
                 Column(
@@ -630,7 +630,7 @@ class _QuoteDetailPageState extends ConsumerState<QuoteDetailPage> {
                 end: Alignment.topCenter,
                 colors: [
                   bgColor,
-                  bgColor.withOpacity(0.9),
+                  bgColor.withValues(alpha:0.9),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.7, 1.0],
@@ -646,7 +646,7 @@ class _QuoteDetailPageState extends ConsumerState<QuoteDetailPage> {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 elevation: 4,
-                shadowColor: clr.secondary.withOpacity(0.4),
+                shadowColor: clr.secondary.withValues(alpha:0.4),
               ),
               icon: _isSaving
                   ? const SizedBox(

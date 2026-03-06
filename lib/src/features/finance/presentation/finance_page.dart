@@ -210,54 +210,92 @@ class _FinancePageState extends State<FinancePage>
         ? const Color(0xFF94A3B8)
         : const Color(0xFF64748B);
 
+    final headerBgColor = isDark
+        ? const Color(0xFF191121).withValues(alpha: 0.8)
+        : const Color(0xFFF7F6F8).withValues(alpha: 0.8);
+
     return Scaffold(
       backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: bgColor,
-        elevation: 0,
-        centerTitle: true,
-        iconTheme: IconThemeData(color: onSurfaceMuted),
-        title: Text(
-          "Financial Logger",
-          style: TextStyle(
-            color: onSurface,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.5,
-          ),
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.calendar_today), onPressed: () {}),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: borderColor)),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              indicatorColor: _tabController.index == 0
-                  ? _expenseColor
-                  : _incomeColor,
-              indicatorWeight: 2,
-              labelColor: _tabController.index == 0
-                  ? _expenseColor
-                  : _incomeColor,
-              unselectedLabelColor: onSurfaceMuted,
-              labelStyle: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(112), // 64 (header) + 48 (tabs)
+        child: Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: headerBgColor,
+                border: Border(
+                  bottom: BorderSide(color: _incomeColor.withValues(alpha: 0.1)),
+                ),
               ),
-              tabs: const [
-                Tab(text: 'Expenses'),
-                Tab(text: 'Income'),
-              ],
-              onTap: (index) {
-                setState(() {}); // Rebuild to update tab colors
-              },
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: _incomeColor.withValues(alpha:0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.account_balance_wallet,
+                                color: _incomeColor, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Finance',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+            Container(
+              color: bgColor,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: borderColor)),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorColor: _tabController.index == 0
+                      ? _expenseColor
+                      : _incomeColor,
+                  indicatorWeight: 2,
+                  labelColor: _tabController.index == 0
+                      ? _expenseColor
+                      : _incomeColor,
+                  unselectedLabelColor: onSurfaceMuted,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                  tabs: const [
+                    Tab(text: 'Expenses'),
+                    Tab(text: 'Income'),
+                  ],
+                  onTap: (index) {
+                    setState(() {}); // Rebuild to update tab colors
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       body: TabBarView(
@@ -309,7 +347,7 @@ class _FinancePageState extends State<FinancePage>
         : const Color(0xFFCBD5E1);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 100),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500),
         child: Column(

@@ -69,8 +69,8 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
   Widget _header(BuildContext context, bool isDark, ColorScheme clr) {
     return Container(
       color: isDark
-          ? const Color(0xFF191121).withOpacity(0.8)
-          : const Color(0xFFF7F6F8).withOpacity(0.8),
+          ? const Color(0xFF191121).withValues(alpha:0.8)
+          : const Color(0xFFF7F6F8).withValues(alpha:0.8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: SafeArea(
         bottom: false,
@@ -82,7 +82,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: clr.primary.withOpacity(0.2),
+                    color: clr.primary.withValues(alpha:0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(Icons.auto_awesome_motion,
@@ -97,12 +97,6 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                       letterSpacing: -0.5,
                     )),
               ],
-            ),
-            IconButton(
-              onPressed: () {},
-              icon: Icon(Icons.filter_list,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600]),
-              splashRadius: 24,
             ),
           ],
         ),
@@ -135,7 +129,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                 ),
                 ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: clr.primary.withOpacity(0.1),
+                    backgroundColor: clr.primary.withValues(alpha:0.1),
                     child: Icon(Icons.edit_note, color: clr.primary),
                   ),
                   title: const Text('Add Note',
@@ -151,7 +145,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                 ),
                 ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: clr.secondary.withOpacity(0.1),
+                    backgroundColor: clr.secondary.withValues(alpha:0.1),
                     child:
                         Icon(Icons.format_quote, color: clr.secondary),
                   ),
@@ -168,7 +162,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                 ),
                 ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.green.withOpacity(0.1),
+                    backgroundColor: Colors.green.withValues(alpha:0.1),
                     child:
                         const Icon(Icons.list_alt, color: Colors.green),
                   ),
@@ -214,7 +208,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
           hintStyle: TextStyle(
               color: isDark ? Colors.grey[600] : Colors.grey[400]),
           prefixIcon:
-              Icon(Icons.search, color: clr.primary.withOpacity(0.6), size: 20),
+              Icon(Icons.search, color: clr.primary.withValues(alpha:0.6), size: 20),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
                   icon: Icon(Icons.clear,
@@ -257,6 +251,13 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
       ).then((_) => ref.invalidate(notesListProvider));
     }
 
+    final capitalizedTag = (note.tag ?? '').trim().isEmpty
+        ? null
+        : note.tag!
+            .split(' ')
+            .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+            .join(' ');
+
     return GestureDetector(
       onTap: openNote,
       child: Container(
@@ -266,7 +267,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
           border: Border.all(color: borderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              color: Colors.black.withValues(alpha:isDark ? 0.2 : 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -322,7 +323,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (note.tag != null && note.tag!.isNotEmpty)
+                      if (capitalizedTag != null)
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
@@ -333,7 +334,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            note.tag!,
+                            capitalizedTag,
                             style: TextStyle(
                               fontSize: 10,
                               color: Colors.grey[400],
@@ -439,7 +440,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
           border: Border.all(color: borderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              color: Colors.black.withValues(alpha:isDark ? 0.2 : 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -454,7 +455,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
               child: Icon(
                 Icons.format_quote,
                 size: 120,
-                color: quoteColor.withOpacity(0.1),
+                color: quoteColor.withValues(alpha:0.1),
               ),
             ),
             Padding(
@@ -470,7 +471,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: quoteColor.withOpacity(0.2),
+                          color: quoteColor.withValues(alpha:0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -557,7 +558,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
         border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            color: Colors.black.withValues(alpha:isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -576,8 +577,8 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  indexColor.withOpacity(0.2),
-                  indexColor.withOpacity(0.05),
+                  indexColor.withValues(alpha:0.2),
+                  indexColor.withValues(alpha:0.05),
                 ],
               ),
             ),
@@ -588,7 +589,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: indexColor.withOpacity(0.2),
+                    color: indexColor.withValues(alpha:0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
@@ -641,7 +642,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: indexColor.withOpacity(0.5),
+                              color: indexColor.withValues(alpha:0.5),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -734,7 +735,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
           onRefresh: () async => ref.invalidate(notesListProvider),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
             children: [
               _searchBar(_notesSearchController, isDark, clr,
                   hint: 'Search notes...'),
@@ -772,7 +773,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
           onRefresh: () async => ref.invalidate(quotesListProvider),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
             children: [
               _searchBar(_quotesSearchController, isDark, clr,
                   hint: 'Search quotes...'),
@@ -812,7 +813,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
           onRefresh: () async => ref.invalidate(indexesListProvider),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
             children: [
               _searchBar(_indexesSearchController, isDark, clr,
                   hint: 'Search indexes...'),
@@ -838,7 +839,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
         padding: const EdgeInsets.symmetric(vertical: 40),
         child: Column(
           children: [
-            Icon(icon, size: 64, color: clr.primary.withOpacity(0.3)),
+            Icon(icon, size: 64, color: clr.primary.withValues(alpha:0.3)),
             const SizedBox(height: 16),
             Text(
               message,
@@ -861,11 +862,14 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
 
     return Scaffold(
       backgroundColor: bgColor,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddMenu(context, clr, isDark),
-        backgroundColor: clr.primary,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add, size: 32),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 90.0), // Above the custom bottom nav
+        child: FloatingActionButton(
+          onPressed: () => _showAddMenu(context, clr, isDark),
+          backgroundColor: clr.primary,
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.add, size: 32),
+        ),
       ),
       body: Column(
         children: [

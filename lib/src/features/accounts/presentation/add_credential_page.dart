@@ -455,7 +455,7 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<LoginMethod>(
-                  value: _loginMethod,
+                  initialValue: _loginMethod,
                   icon: const Icon(
                     Icons.keyboard_arrow_down,
                     color: Color(0xFF94A3B8),
@@ -568,7 +568,7 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _tags.contains(_selectedTag) ? _selectedTag : null,
+                        initialValue: _tags.contains(_selectedTag) ? _selectedTag : null,
                         icon: const Icon(
                           Icons.keyboard_arrow_down,
                           color: Color(0xFF94A3B8),

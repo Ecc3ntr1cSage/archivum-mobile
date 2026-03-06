@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/openrouter_service.dart';
+import '../../agent/data/openrouter_service.dart';
 
 class ChatMessage {
   final String text;

@@ -29,14 +29,27 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Archivum'),
-        centerTitle: true,
-      ),
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNav(
-        currentIndex: _currentIndex,
-        onTap: _onTap,
+      // Remove the scaffold's own bottom nav — we position it manually
+      body: Stack(
+        children: [
+          // ── Page content ──────────────────────────────────────────────
+          Positioned.fill(
+            child: _pages[_currentIndex],
+          ),
+
+          // ── Floating bottom nav bar ───────────────────────────────────
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              child: BottomNav(
+                currentIndex: _currentIndex,
+                onTap: _onTap,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

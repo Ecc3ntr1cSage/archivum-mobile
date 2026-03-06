@@ -116,7 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   width: 256,
                   height: 256,
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
+                    color: primaryColor.withValues(alpha:0.1),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -134,7 +134,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   width: 256,
                   height: 256,
                   decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.05),
+                    color: accentColor.withValues(alpha:0.05),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -170,7 +170,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: primaryColor.withOpacity(0.2),
+                                color: primaryColor.withValues(alpha:0.2),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
@@ -441,7 +441,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               width: 4,
                               height: 4,
                               decoration: BoxDecoration(
-                                color: primaryColor.withOpacity(0.4),
+                                color: primaryColor.withValues(alpha:0.4),
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -450,7 +450,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               width: 4,
                               height: 4,
                               decoration: BoxDecoration(
-                                color: primaryColor.withOpacity(0.4),
+                                color: primaryColor.withValues(alpha:0.4),
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),

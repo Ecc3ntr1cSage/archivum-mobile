@@ -19,9 +19,7 @@ final ThemeData darkTheme = ThemeData(
   colorScheme: ColorScheme.dark(
     primary: _primary,
     secondary: _secondary,
-    background: _background,
     surface: _surface,
-    onBackground: _onBackground,
     onSurface: _onBackground,
     onPrimary: Colors.white,
     onSecondary: Colors.black,
@@ -35,7 +33,7 @@ final ThemeData darkTheme = ThemeData(
   bottomNavigationBarTheme: BottomNavigationBarThemeData(
     backgroundColor: _surface,
     selectedItemColor: _primary,
-    unselectedItemColor: _onBackground.withOpacity(0.7),
+    unselectedItemColor: _onBackground.withValues(alpha:0.7),
   ),
   useMaterial3: true,
 );

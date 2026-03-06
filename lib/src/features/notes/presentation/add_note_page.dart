@@ -135,7 +135,7 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
         children: [
           Container(
             height: 1,
-            color: theme.dividerColor.withOpacity(0.1),
+            color: theme.dividerColor.withValues(alpha:0.1),
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -190,7 +190,7 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: isSelected ? clr.primary.withOpacity(0.1) : Colors.transparent,
+                              color: isSelected ? clr.primary.withValues(alpha:0.1) : Colors.transparent,
                               border: Border.all(
                                 color: isSelected ? clr.primary : (isDark ? Colors.grey[700]! : Colors.grey[300]!),
                               ),
@@ -262,7 +262,7 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? theme.scaffoldBackgroundColor.withOpacity(0.5) : Colors.grey[50]?.withOpacity(0.5),
+              color: isDark ? theme.scaffoldBackgroundColor.withValues(alpha:0.5) : Colors.grey[50]?.withValues(alpha:0.5),
               border: Border(
                 top: BorderSide(
                   color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
@@ -298,7 +298,7 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 4,
-                      shadowColor: clr.primary.withOpacity(0.4),
+                      shadowColor: clr.primary.withValues(alpha:0.4),
                     ),
                     onPressed: () async {
                       final title = _titleController.text.trim();

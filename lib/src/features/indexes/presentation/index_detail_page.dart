@@ -219,7 +219,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: bgColor.withOpacity(0.8),
+        backgroundColor: bgColor.withValues(alpha:0.8),
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: Padding(
@@ -303,8 +303,15 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
     final totalCount = _currentIndex.items.length;
     final progress = totalCount > 0 ? checkedCount / totalCount : 0.0;
 
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: 16 + bottomPadding,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -316,13 +323,13 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  indexColor.withOpacity(isDark ? 0.15 : 0.1),
-                  indexColor.withOpacity(isDark ? 0.05 : 0.02),
+                  indexColor.withValues(alpha:isDark ? 0.15 : 0.1),
+                  indexColor.withValues(alpha:isDark ? 0.05 : 0.02),
                 ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: indexColor.withOpacity(isDark ? 0.2 : 0.15)),
+                  color: indexColor.withValues(alpha:isDark ? 0.2 : 0.15)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,7 +339,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: indexColor.withOpacity(0.15),
+                        color: indexColor.withValues(alpha:0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(Icons.list_alt,
@@ -374,7 +381,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                             value: progress,
                             strokeWidth: 4,
                             backgroundColor:
-                                indexColor.withOpacity(isDark ? 0.15 : 0.1),
+                                indexColor.withValues(alpha:isDark ? 0.15 : 0.1),
                             valueColor: AlwaysStoppedAnimation<Color>(
                                 indexColor),
                           ),
@@ -414,7 +421,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: indexColor.withOpacity(0.1),
+                  color: indexColor.withValues(alpha:0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -495,11 +502,11 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                 shape: BoxShape.circle,
                 color: item.isChecked
                     ? indexColor
-                    : Colors.grey.withOpacity(isDark ? 0.2 : 0.15),
+                    : Colors.grey.withValues(alpha:isDark ? 0.2 : 0.15),
                 border: Border.all(
                   color: item.isChecked
                       ? indexColor
-                      : Colors.grey.withOpacity(isDark ? 0.4 : 0.3),
+                      : Colors.grey.withValues(alpha:isDark ? 0.4 : 0.3),
                   width: 2,
                 ),
               ),
@@ -529,7 +536,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
             //       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             //   decoration: BoxDecoration(
             //     color: isDark
-            //         ? Colors.white.withOpacity(0.05)
+            //         ? Colors.white.withValues(alpha:0.05)
             //         : Colors.grey[100],
             //     borderRadius: BorderRadius.circular(4),
             //   ),
@@ -557,8 +564,11 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
     return Stack(
       children: [
         SingleChildScrollView(
-          padding: const EdgeInsets.only(
-              left: 16, right: 16, top: 24, bottom: 120),
+          padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 24,
+              bottom: 120 + MediaQuery.of(context).padding.bottom),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -617,7 +627,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: clr.primary.withOpacity(0.1),
+                      color: clr.primary.withValues(alpha:0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -671,11 +681,11 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                               color: isChecked
                                   ? indexColor
                                   : Colors.grey
-                                      .withOpacity(isDark ? 0.2 : 0.15),
+                                      .withValues(alpha:isDark ? 0.2 : 0.15),
                               border: Border.all(
                                 color: isChecked
                                     ? indexColor
-                                    : Colors.grey.withOpacity(
+                                    : Colors.grey.withValues(alpha:
                                         isDark ? 0.4 : 0.3),
                                 width: 2,
                               ),
@@ -758,7 +768,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   side: BorderSide(
-                      color: clr.secondary.withOpacity(0.3),
+                      color: clr.secondary.withValues(alpha:0.3),
                       width: 2,
                       style: BorderStyle.solid),
                   shape: RoundedRectangleBorder(
@@ -782,14 +792,19 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
           left: 0,
           right: 0,
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              24 + MediaQuery.of(context).padding.bottom,
+            ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
                   bgColor,
-                  bgColor.withOpacity(0.9),
+                  bgColor.withValues(alpha:0.9),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.7, 1.0],
@@ -806,7 +821,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 elevation: 4,
-                shadowColor: clr.primary.withOpacity(0.4),
+                shadowColor: clr.primary.withValues(alpha:0.4),
               ),
               icon: _isSaving
                   ? const SizedBox(

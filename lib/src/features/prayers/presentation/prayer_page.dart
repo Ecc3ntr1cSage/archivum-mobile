@@ -134,11 +134,7 @@ class _PrayerPageState extends State<PrayerPage> {
 
   Widget _buildHeader(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final onSurface = isDark ? Colors.white : const Color(0xFF0F172A);
-    final onSurfaceMuted = isDark
-        ? const Color(0xFF94A3B8)
-        : const Color(0xFF64748B);
+    final surface = isDark ? const Color(0xFF191121).withValues(alpha:0.8) : const Color(0xFFF7F6F8).withValues(alpha:0.8);
     final borderColor = isDark
         ? const Color(0xFF1E293B)
         : const Color(0xFFF1F5F9);
@@ -147,85 +143,45 @@ class _PrayerPageState extends State<PrayerPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: surface,
-        border: Border(bottom: BorderSide(color: borderColor)),
+        border: Border(bottom: BorderSide(color: _primary.withValues(alpha:0.1))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SizedBox(
-            width: 48,
-            child: IconButton(
-              icon: const Icon(
-                Icons.calendar_month_outlined,
-                color: _primary,
-                size: 30,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PrayerHistoryPage(),
-                  ),
-                );
-              },
-              padding: EdgeInsets.zero,
-            ),
-          ),
-          Expanded(
-            child: Column(
-              children: [
-                Text(
-                  "Daily Prayers",
-                  style: TextStyle(
-                    color: onSurface,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _getLoggingLabel(),
-                  style: TextStyle(
-                    color: onSurface,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'reset at 5am',
-                  style: TextStyle(
-                    color: onSurfaceMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            width: 48,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Container(
-                width: 40,
-                height: 40,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isDark
-                      ? const Color(0xFF1E293B)
-                      : const Color(0xFFF1F5F9),
+                  color: _primary.withValues(alpha:0.2),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  Icons.settings_outlined,
-                  color: isDark
-                      ? const Color(0xFFCBD5E1)
-                      : const Color(0xFF334155),
-                  size: 20,
-                ),
+                child: const Icon(Icons.mosque_outlined,
+                    color: _primary, size: 20),
               ),
-            ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Prayers',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  Text(
+                    _getLoggingLabel(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -404,7 +360,7 @@ class _PrayerPageState extends State<PrayerPage> {
               ],
             );
           }),
-          const SizedBox(height: 80),
+          const SizedBox(height: 100),
         ],
       ),
     );

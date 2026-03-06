@@ -280,19 +280,32 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Title
-                  Expanded(
-                    child: Text(
-                      'Accounts',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: isDark
-                            ? Colors.white
-                            : const Color(0xFF0F172A),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: primary.withValues(alpha:0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.shield_outlined,
+                            color: primary, size: 20),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Accounts',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ],
                   ),
                   // Plus button on the right
                   ElevatedButton(
@@ -431,7 +444,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
                 ),
               ),
 
-            const SizedBox(height: 80),
+            const SizedBox(height: 100),
           ],
         ),
       ),

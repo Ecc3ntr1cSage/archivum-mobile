@@ -563,7 +563,7 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
           ),
           const SizedBox(height: 6),
           DropdownButtonFormField<LoginMethod>(
-            value: _loginMethod,
+            initialValue: _loginMethod,
             icon: const Icon(Icons.keyboard_arrow_down,
                 color: Color(0xFF94A3B8)),
             dropdownColor: isDark
@@ -691,7 +691,7 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
           ),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _tags.contains(_selectedTag) ? _selectedTag : null,
+            initialValue: _tags.contains(_selectedTag) ? _selectedTag : null,
             hint: const Text('Select a tag',
                 style: TextStyle(color: Color(0xFF64748B))),
             icon: const Icon(Icons.keyboard_arrow_down,

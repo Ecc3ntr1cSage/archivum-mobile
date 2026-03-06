@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -276,7 +275,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
                                 elevation: 8,
-                                shadowColor: primaryColor.withOpacity(0.5),
+                                shadowColor: primaryColor.withValues(alpha:0.5),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -308,7 +307,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                 Expanded(
                                     child: Divider(
                                         color: isDark
-                                            ? primaryColor.withOpacity(0.1)
+                                            ? primaryColor.withValues(alpha:0.1)
                                             : const Color(0xFFE2E8F0))),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -326,7 +325,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                 Expanded(
                                     child: Divider(
                                         color: isDark
-                                            ? primaryColor.withOpacity(0.1)
+                                            ? primaryColor.withValues(alpha:0.1)
                                             : const Color(0xFFE2E8F0))),
                               ],
                             ),
@@ -353,7 +352,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                               style: OutlinedButton.styleFrom(
                                 side: BorderSide(
                                     color: isDark
-                                        ? primaryColor.withOpacity(0.3)
+                                        ? primaryColor.withValues(alpha:0.3)
                                         : borderColor,
                                     width: 2),
                                 shape: RoundedRectangleBorder(
@@ -506,9 +505,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha:0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha:0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

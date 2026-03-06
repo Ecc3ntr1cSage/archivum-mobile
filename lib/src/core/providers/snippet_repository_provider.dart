@@ -1,10 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/notes/domain/note.dart';
-import '../../features/notes/domain/note_repository.dart';
 import '../../features/quotes/domain/quote.dart';
-import '../../features/quotes/domain/quote_repository.dart';
 import '../../features/indexes/domain/index_item.dart';
-import '../../features/indexes/domain/index_repository.dart';
 import 'note_repository_provider.dart';
 import 'quote_repository_provider.dart';
 import 'index_repository_provider.dart';

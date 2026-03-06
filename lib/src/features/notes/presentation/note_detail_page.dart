@@ -207,7 +207,7 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: bgColor.withOpacity(0.8),
+        backgroundColor: bgColor.withValues(alpha:0.8),
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: Padding(
@@ -299,20 +299,20 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  clr.primary.withOpacity(isDark ? 0.15 : 0.1),
-                  clr.primary.withOpacity(isDark ? 0.05 : 0.02),
+                  clr.primary.withValues(alpha:isDark ? 0.15 : 0.1),
+                  clr.primary.withValues(alpha:isDark ? 0.05 : 0.02),
                 ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: clr.primary.withOpacity(isDark ? 0.2 : 0.15)),
+                  color: clr.primary.withValues(alpha:isDark ? 0.2 : 0.15)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: clr.primary.withOpacity(0.15),
+                    color: clr.primary.withValues(alpha:0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(Icons.edit_note, color: clr.primary, size: 20),
@@ -329,7 +329,7 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
                               horizontal: 8, vertical: 2),
                           margin: const EdgeInsets.only(bottom: 6),
                           decoration: BoxDecoration(
-                            color: clr.primary.withOpacity(0.1),
+                            color: clr.primary.withValues(alpha:0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -501,7 +501,7 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? clr.primary.withOpacity(0.15)
+                              ? clr.primary.withValues(alpha:0.15)
                               : Colors.transparent,
                           border: Border.all(
                             color: isSelected
@@ -621,7 +621,7 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
                 end: Alignment.topCenter,
                 colors: [
                   bgColor,
-                  bgColor.withOpacity(0.9),
+                  bgColor.withValues(alpha:0.9),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.7, 1.0],
@@ -637,7 +637,7 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 elevation: 4,
-                shadowColor: clr.primary.withOpacity(0.4),
+                shadowColor: clr.primary.withValues(alpha:0.4),
               ),
               icon: _isSaving
                   ? const SizedBox(

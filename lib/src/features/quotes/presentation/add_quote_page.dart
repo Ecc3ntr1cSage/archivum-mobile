@@ -135,7 +135,7 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
         children: [
           Container(
             height: 1,
-            color: theme.dividerColor.withOpacity(0.1),
+            color: theme.dividerColor.withValues(alpha:0.1),
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -176,9 +176,9 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
                   Container(
                     height: 320,
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.grey[800]?.withOpacity(0.5) : Colors.grey[50],
+                      color: isDark ? Colors.grey[800]?.withValues(alpha:0.5) : Colors.grey[50],
                       border: Border.all(
-                        color: clr.primary.withOpacity(0.3),
+                        color: clr.primary.withValues(alpha:0.3),
                         width: 2,
                       ),
                       borderRadius: BorderRadius.circular(12),
@@ -216,7 +216,7 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
                           child: Icon(
                             Icons.format_quote,
                             size: 48,
-                            color: (isDark ? Colors.grey[600] : Colors.grey[400])?.withOpacity(0.2),
+                            color: (isDark ? Colors.grey[600] : Colors.grey[400])?.withValues(alpha:0.2),
                           ),
                         ),
                       ],
@@ -241,7 +241,7 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
                       hintText: 'Who said this?',
                       hintStyle: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey[400]),
                       filled: true,
-                      fillColor: isDark ? Colors.grey[800]?.withOpacity(0.5) : Colors.grey[50],
+                      fillColor: isDark ? Colors.grey[800]?.withValues(alpha:0.5) : Colors.grey[50],
                       contentPadding: const EdgeInsets.all(16),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -337,7 +337,7 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 4,
-                        shadowColor: clr.primary.withOpacity(0.4),
+                        shadowColor: clr.primary.withValues(alpha:0.4),
                       ),
                       onPressed: () async {
                         final content = _quoteController.text.trim();
@@ -395,7 +395,7 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: isDark ? theme.scaffoldBackgroundColor.withOpacity(0.5) : Colors.grey[50]?.withOpacity(0.5),
+              color: isDark ? theme.scaffoldBackgroundColor.withValues(alpha:0.5) : Colors.grey[50]?.withValues(alpha:0.5),
               border: Border(
                 top: BorderSide(
                   color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
