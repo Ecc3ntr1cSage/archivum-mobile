@@ -58,6 +58,7 @@ class PrayerRepository {
         .eq('id', id)
         .select()
         .single();
+    await client.from('activity_logs').insert({'activity_type': 'prayer_updated'});
     return PrayerDay.fromMap(updated);
   }
 

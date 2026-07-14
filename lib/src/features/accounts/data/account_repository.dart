@@ -19,7 +19,9 @@ class SupabaseAccountRepository implements AccountRepository {
         .insert(payload)
         .select()
         .single();
-    return Account.fromJson(response);
+    final result = Account.fromJson(response);
+    await client.from('activity_logs').insert({'activity_type': 'credential_created'});
+    return result;
   }
 
   @override
@@ -43,12 +45,15 @@ class SupabaseAccountRepository implements AccountRepository {
         .eq('id', account.id!)
         .select()
         .single();
-    return Account.fromJson(response);
+    final result = Account.fromJson(response);
+    await client.from('activity_logs').insert({'activity_type': 'credential_updated'});
+    return result;
   }
 
   @override
   Future<void> deleteAccount(String id) async {
     await client.from('accounts').delete().eq('id', id);
+    await client.from('activity_logs').insert({'activity_type': 'credential_deleted'});
   }
 
   @override

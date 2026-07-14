@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../domain/transaction.dart';
+
+import '../../../core/theme/app_theme.dart';
 import '../data/transaction_repository.dart';
+import '../domain/transaction.dart';
 import 'financial_history_page.dart';
 
 class FinancePage extends StatefulWidget {
@@ -14,117 +17,35 @@ class FinancePage extends StatefulWidget {
 class _FinancePageState extends State<FinancePage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  final List<Map<String, String>> _income = [];
-  final List<Map<String, String>> _expense = [];
 
   final TextEditingController _amount = TextEditingController();
   final TextEditingController _details = TextEditingController();
 
-  static const Color _incomeColor = Color(0xFF8A2CE2);
-  static const Color _expenseColor = Color(0xFFFF8C00);
-
+  DateTime? _selectedDate;
   String? _selectedTag;
 
   List<String> _incomeTags = [];
   List<String> _expenseTags = [];
+
+  static const Color _incomeAccent = Color(0xFF5F8787);
+  static const Color _expenseAccent = Color(0xFFD87943);
+
+  bool get _isIncomeTab => _tabController.index == 1;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        setState(() {
-          _selectedTag = null;
-          _amount.clear();
-          _details.clear();
-        });
-      }
+      if (_tabController.indexIsChanging) return;
+      setState(() {
+        _selectedTag = null;
+        _selectedDate = null;
+        _amount.clear();
+        _details.clear();
+      });
     });
-    Future.microtask(() => _loadTags());
-  }
-
-  Future<void> _loadTags() async {
-    if (!mounted) return;
-    try {
-      final repo = TransactionRepository(Supabase.instance.client);
-      final fetchedIncomeTags = await repo.getTags('income');
-      final fetchedExpenseTags = await repo.getTags('expense');
-      if (mounted) {
-        setState(() {
-          if (fetchedIncomeTags.isNotEmpty) {
-            _incomeTags = fetchedIncomeTags;
-          }
-          if (fetchedExpenseTags.isNotEmpty) {
-            _expenseTags = fetchedExpenseTags;
-          }
-        });
-      }
-    } catch (e) {
-      // Tags failed to load, remain at defaults
-    }
-  }
-
-  void _showAddTagDialog(bool isIncome) {
-    final TextEditingController tagController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Add New Tag'),
-          content: TextField(
-            controller: tagController,
-            decoration: const InputDecoration(
-              hintText: 'Enter tag name',
-            ),
-            autofocus: true,
-            textCapitalization: TextCapitalization.words,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final tagText = tagController.text.trim();
-                if (tagText.isNotEmpty) {
-                  try {
-                    final repo = TransactionRepository(Supabase.instance.client);
-                    await repo.addTag(tagText, isIncome ? 'income' : 'expense');
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Tag added successfully')),
-                      );
-                      setState(() {
-                        if (isIncome) {
-                          if (!_incomeTags.contains(tagText)) {
-                            _incomeTags.add(tagText);
-                          }
-                        } else {
-                          if (!_expenseTags.contains(tagText)) {
-                            _expenseTags.add(tagText);
-                          }
-                        }
-                        _selectedTag = tagText;
-                      });
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to add tag: $e')),
-                      );
-                    }
-                  }
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
-    );
+    Future.microtask(_loadTags);
   }
 
   @override
@@ -135,459 +56,857 @@ class _FinancePageState extends State<FinancePage>
     super.dispose();
   }
 
-  Future<void> _save(bool isIncome) async {
-    final a = _amount.text.trim();
-    final d = _details.text.trim();
-    final t = _selectedTag ?? 'Other';
-    if (a.isEmpty) return;
+  Future<void> _loadTags() async {
+    if (!mounted) return;
+    try {
+      final repo = TransactionRepository(Supabase.instance.client);
+      final fetchedIncomeTags = await repo.getTags('income');
+      final fetchedExpenseTags = await repo.getTags('expense');
+      if (!mounted) return;
+      setState(() {
+        if (fetchedIncomeTags.isNotEmpty) {
+          _incomeTags = fetchedIncomeTags;
+        }
+        if (fetchedExpenseTags.isNotEmpty) {
+          _expenseTags = fetchedExpenseTags;
+        }
+      });
+    } catch (_) {
+      // Keep the UI usable even if tag loading fails.
+    }
+  }
 
-    final parsedAmount = double.tryParse(a);
+  Future<void> _pickDate(Color accent) async {
+    final theme = Theme.of(context);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(primary: accent),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && mounted) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  Future<void> _showAddTagDialog(bool isIncome) async {
+    final theme = context.archivumTheme;
+    final accent = isIncome ? _incomeAccent : _expenseAccent;
+    final controller = TextEditingController();
+    final messenger = ScaffoldMessenger.of(context);
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: theme.popover,
+          title: Text(
+            'Add new tag',
+            style: TextStyle(color: theme.popoverForeground),
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            style: TextStyle(color: theme.foreground),
+            decoration: const InputDecoration(hintText: 'Enter tag name'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accent,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final tagText = controller.text.trim();
+                if (tagText.isEmpty) return;
+
+                try {
+                  final repo = TransactionRepository(Supabase.instance.client);
+                  await repo.addTag(tagText, isIncome ? 'income' : 'expense');
+                  if (!context.mounted) return;
+
+                  Navigator.pop(context);
+                  if (!mounted) return;
+                  setState(() {
+                    if (isIncome) {
+                      if (!_incomeTags.contains(tagText)) {
+                        _incomeTags.add(tagText);
+                      }
+                    } else {
+                      if (!_expenseTags.contains(tagText)) {
+                        _expenseTags.add(tagText);
+                      }
+                    }
+                    _selectedTag = tagText;
+                  });
+
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Tag added successfully')),
+                  );
+                } catch (error) {
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('Failed to add tag: $error')),
+                  );
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+  }
+
+  Future<void> _save(bool isIncome) async {
+    final amountText = _amount.text.trim();
+    final details = _details.text.trim();
+    final tag = _selectedTag ?? 'Other';
+    final accent = isIncome ? _incomeAccent : _expenseAccent;
+
+    if (amountText.isEmpty) return;
+
+    final parsedAmount = double.tryParse(amountText);
     if (parsedAmount == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid amount'), backgroundColor: Colors.red),
+        SnackBar(
+          content: const Text('Invalid amount'),
+          backgroundColor: context.archivumTheme.destructive,
+        ),
       );
       return;
     }
 
     try {
       final transaction = TransactionModel(
-        id: '', 
+        id: '',
         type: isIncome ? TransactionType.income : TransactionType.expense,
         amount: parsedAmount,
-        details: d,
-        tag: t,
+        details: details,
+        tag: tag,
+        date: _selectedDate,
         createdAt: DateTime.now(),
       );
-      
+
       final repo = TransactionRepository(Supabase.instance.client);
       await repo.createTransaction(transaction);
 
-      final item = {'amount': a, 'details': d, 'tag': t};
       setState(() {
-        if (isIncome) {
-          _income.insert(0, item);
-        } else {
-          _expense.insert(0, item);
-        }
         _amount.clear();
         _details.clear();
         _selectedTag = null;
+        _selectedDate = null;
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${isIncome ? 'Income' : 'Expense'} logged successfully!',
-            ),
-            backgroundColor: isIncome ? _incomeColor : _expenseColor,
-            behavior: SnackBarBehavior.floating,
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${isIncome ? 'Income' : 'Expense'} logged successfully',
           ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+          backgroundColor: accent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $error'),
+          backgroundColor: context.archivumTheme.destructive,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
-    final borderColor = isDark
-        ? const Color(0xFF1E293B)
-        : const Color(0xFFE2E8F0);
-    final onSurface = isDark ? Colors.white : const Color(0xFF0F172A);
-    final onSurfaceMuted = isDark
-        ? const Color(0xFF94A3B8)
-        : const Color(0xFF64748B);
-
-    final headerBgColor = isDark
-        ? const Color(0xFF191121).withValues(alpha: 0.8)
-        : const Color(0xFFF7F6F8).withValues(alpha: 0.8);
+    final theme = context.archivumTheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(112), // 64 (header) + 48 (tabs)
+      backgroundColor: theme.background,
+      body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            Container(
-              decoration: BoxDecoration(
-                color: headerBgColor,
-                border: Border(
-                  bottom: BorderSide(color: _incomeColor.withValues(alpha: 0.1)),
-                ),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: _incomeColor.withValues(alpha:0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.account_balance_wallet,
-                                color: _incomeColor, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Finance',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF0F172A),
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _FinanceHeader(
+              activeAccent: _isIncomeTab ? _incomeAccent : _expenseAccent,
             ),
-            Container(
-              color: bgColor,
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: borderColor)),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicatorColor: _tabController.index == 0
-                      ? _expenseColor
-                      : _incomeColor,
-                  indicatorWeight: 2,
-                  labelColor: _tabController.index == 0
-                      ? _expenseColor
-                      : _incomeColor,
-                  unselectedLabelColor: onSurfaceMuted,
-                  labelStyle: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+            _FinanceTabs(
+              controller: _tabController,
+              activeAccent: _isIncomeTab ? _incomeAccent : _expenseAccent,
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _FinanceFormTab(
+                    key: const ValueKey('expense-tab'),
+                    title: 'Track an expense',
+                    subtitle: 'Capture outgoing money with category and date.',
+                    accent: _expenseAccent,
+                    icon: Icons.south_east_rounded,
+                    amountIcon: Icons.shopping_bag_outlined,
+                    actionLabel: 'Log Expense',
+                    detailsHint: 'Groceries, utilities, transport',
+                    selectedDate: _selectedDate,
+                    selectedTag: _selectedTag,
+                    amountController: _amount,
+                    detailsController: _details,
+                    tags: _expenseTags,
+                    onDateTap: () => _pickDate(_expenseAccent),
+                    onClearDate: () => setState(() => _selectedDate = null),
+                    onTagSelected: (tag) => setState(() => _selectedTag = tag),
+                    onAddTag: () => _showAddTagDialog(false),
+                    onSubmit: () => _save(false),
                   ),
-                  tabs: const [
-                    Tab(text: 'Expenses'),
-                    Tab(text: 'Income'),
-                  ],
-                  onTap: (index) {
-                    setState(() {}); // Rebuild to update tab colors
-                  },
-                ),
+                  _FinanceFormTab(
+                    key: const ValueKey('income-tab'),
+                    title: 'Record income',
+                    subtitle: 'Keep earnings, side income, and payouts tidy.',
+                    accent: _incomeAccent,
+                    icon: Icons.north_west_rounded,
+                    amountIcon: Icons.payments_outlined,
+                    actionLabel: 'Log Income',
+                    detailsHint: 'Salary, freelance work, dividends',
+                    selectedDate: _selectedDate,
+                    selectedTag: _selectedTag,
+                    amountController: _amount,
+                    detailsController: _details,
+                    tags: _incomeTags,
+                    onDateTap: () => _pickDate(_incomeAccent),
+                    onClearDate: () => setState(() => _selectedDate = null),
+                    onTagSelected: (tag) => setState(() => _selectedTag = tag),
+                    onAddTag: () => _showAddTagDialog(true),
+                    onSubmit: () => _save(true),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+    );
+  }
+}
+
+class _FinanceHeader extends StatelessWidget {
+  const _FinanceHeader({required this.activeAccent});
+
+  final Color activeAccent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      decoration: BoxDecoration(
+        color: theme.background,
+        border: Border(bottom: BorderSide(color: theme.border)),
+      ),
+      child: Row(
         children: [
-          _buildTransactionTab(
-            context: context,
-            isIncome: false,
-            title: "Add Expense",
-            subtitle: "Log your outgoings and bills",
-            color: _expenseColor,
-            icon: Icons.remove_circle,
-            inputIcon: Icons.shopping_cart,
-            tags: _expenseTags,
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: activeAccent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.account_balance_wallet_outlined,
+              color: activeAccent,
+              size: 20,
+            ),
           ),
-          _buildTransactionTab(
-            context: context,
-            isIncome: true,
-            title: "Add Income",
-            subtitle: "Log your earnings and windfalls",
-            color: _incomeColor,
-            icon: Icons.add_circle,
-            inputIcon: Icons.payments,
-            tags: _incomeTags,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Finance',
+                  style: TextStyle(
+                    color: theme.foreground,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'A calmer ledger for money in and out.',
+                  style: TextStyle(color: theme.mutedForeground, fontSize: 12),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildTransactionTab({
-    required BuildContext context,
-    required bool isIncome,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required IconData icon,
-    required IconData inputIcon,
-    required List<String> tags,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = isDark ? Colors.white : const Color(0xFF0F172A);
-    final onSurfaceMuted = isDark
-        ? const Color(0xFF94A3B8)
-        : const Color(0xFF64748B);
-    final inputBg = isDark ? const Color(0xFF0B0D14) : const Color(0xFFF1F5F9);
-    final inputBorder = isDark
-        ? const Color(0xFF1E293B)
-        : const Color(0xFFCBD5E1);
+class _FinanceTabs extends StatelessWidget {
+  const _FinanceTabs({required this.controller, required this.activeAccent});
+
+  final TabController controller;
+  final Color activeAccent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return Container(
+      color: theme.background,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.muted,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: theme.border),
+        ),
+        child: TabBar(
+          controller: controller,
+          indicator: BoxDecoration(
+            color: activeAccent.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: activeAccent.withValues(alpha: 0.35)),
+          ),
+          indicatorPadding: const EdgeInsets.all(4),
+          dividerColor: Colors.transparent,
+          labelColor: activeAccent,
+          unselectedLabelColor: theme.mutedForeground,
+          labelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+          tabs: const [
+            Tab(text: 'Expenses'),
+            Tab(text: 'Income'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FinanceFormTab extends StatelessWidget {
+  const _FinanceFormTab({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.icon,
+    required this.amountIcon,
+    required this.actionLabel,
+    required this.detailsHint,
+    required this.selectedDate,
+    required this.selectedTag,
+    required this.amountController,
+    required this.detailsController,
+    required this.tags,
+    required this.onDateTap,
+    required this.onClearDate,
+    required this.onTagSelected,
+    required this.onAddTag,
+    required this.onSubmit,
+  });
+
+  final String title;
+  final String subtitle;
+  final Color accent;
+  final IconData icon;
+  final IconData amountIcon;
+  final String actionLabel;
+  final String detailsHint;
+  final DateTime? selectedDate;
+  final String? selectedTag;
+  final TextEditingController amountController;
+  final TextEditingController detailsController;
+  final List<String> tags;
+  final VoidCallback onDateTap;
+  final VoidCallback onClearDate;
+  final ValueChanged<String> onTagSelected;
+  final VoidCallback onAddTag;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 100),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 500),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+      physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: onSurface,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+          _HeroCard(accent: accent, icon: icon),
+          const SizedBox(height: 18),
+          Text(
+            title,
+            style: TextStyle(
+              color: theme.foreground,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(color: onSurfaceMuted, fontSize: 14),
-            ),
-            const SizedBox(height: 24),
-
-            // Amount Input
-            Text(
-              "AMOUNT",
-              style: TextStyle(
-                color: onSurfaceMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _amount,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              style: TextStyle(
-                color: onSurface,
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                hintText: "0.00",
-                hintStyle: TextStyle(
-                  color: onSurfaceMuted.withValues(alpha: 0.5),
-                ),
-                prefixIcon: Icon(inputIcon, color: color),
-                filled: true,
-                fillColor: inputBg,
-                contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: inputBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: color, width: 2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Details Input
-            Text(
-              "DETAILS",
-              style: TextStyle(
-                color: onSurfaceMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _details,
-              style: TextStyle(
-                color: onSurface,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                hintText: isIncome
-                    ? "e.g. Monthly Salary, Freelance project"
-                    : "e.g. Groceries, Electricity",
-                hintStyle: TextStyle(
-                  color: onSurfaceMuted.withValues(alpha: 0.5),
-                ),
-                prefixIcon: Icon(Icons.description, color: onSurfaceMuted),
-                filled: true,
-                fillColor: inputBg,
-                contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: inputBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: color, width: 2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Category Tag
-            Text(
-              "TAG",
-              style: TextStyle(
-                color: onSurfaceMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(color: theme.mutedForeground, fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+          _FormSection(
+            accent: accent,
+            child: Column(
               children: [
-                ...tags.map((tag) {
-                  final isSelected = _selectedTag == tag;
-                  return InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedTag = tag;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? color.withValues(alpha: 0.2)
-                            : (isDark
-                                  ? const Color(0xFF1E293B)
-                                  : const Color(0xFFF1F5F9)),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isSelected
-                              ? color.withValues(alpha: 0.3)
-                              : (isDark
-                                    ? const Color(0xFF334155)
-                                    : const Color(0xFFE2E8F0)),
+                _SectionLabel(label: 'Amount', accent: accent),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: TextStyle(
+                    color: theme.foreground,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '0.00',
+                    prefixIcon: Icon(amountIcon, color: accent),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _SectionLabel(label: 'Details', accent: accent),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: detailsController,
+                  style: TextStyle(color: theme.foreground, fontSize: 15),
+                  decoration: InputDecoration(
+                    hintText: detailsHint,
+                    prefixIcon: Icon(
+                      Icons.notes_rounded,
+                      color: theme.mutedForeground,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _SectionLabel(label: 'Date', accent: accent),
+                const SizedBox(height: 8),
+                _PickerRow(
+                  icon: Icons.calendar_today_outlined,
+                  accent: accent,
+                  label: selectedDate == null
+                      ? 'Optional'
+                      : DateFormat('MMM d, yyyy').format(selectedDate!),
+                  muted: selectedDate == null,
+                  onTap: onDateTap,
+                  trailing: selectedDate == null
+                      ? Icon(
+                          Icons.chevron_right_rounded,
+                          color: theme.mutedForeground,
+                        )
+                      : IconButton(
+                          onPressed: onClearDate,
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: theme.mutedForeground,
+                          ),
                         ),
+                ),
+                const SizedBox(height: 16),
+                _SectionLabel(label: 'Tag', accent: accent),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final tag in tags)
+                      _TagChip(
+                        label: tag,
+                        selected: selectedTag == tag,
+                        accent: accent,
+                        onTap: () => onTagSelected(tag),
                       ),
-                      child: Text(
-                        tag,
-                        style: TextStyle(
-                          color: isSelected ? color : onSurfaceMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    _AddTagChip(accent: accent, onTap: onAddTag),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onSubmit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                  );
-                }),
-                InkWell(
-                  onTap: () => _showAddTagDialog(isIncome),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: color.withValues(alpha: 0.2)),
+                    child: Text(
+                      actionLabel,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    child: Icon(Icons.add, color: color, size: 18),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+          ),
+          const SizedBox(height: 14),
+          _HistoryCard(accent: accent),
+        ],
+      ),
+    );
+  }
+}
 
-            // Log Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _save(isIncome),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: color,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({required this.accent, required this.icon});
+
+  final Color accent;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.16),
+            accent.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: accent.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: accent, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Money flow',
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
                   ),
-                  elevation: 8,
-                  shadowColor: color.withValues(alpha: 0.4),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon),
-                    const SizedBox(width: 8),
-                    Text(
-                      isIncome ? "Log Income" : "Log Expense",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  'Capture the amount, tag it, and keep the ledger clean.',
+                  style: TextStyle(
+                    color: theme.mutedForeground,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FormSection extends StatelessWidget {
+  const _FormSection({required this.child, required this.accent});
+
+  final Widget child;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: theme.border),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label, required this.accent});
+
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            color: accent,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.9,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PickerRow extends StatelessWidget {
+  const _PickerRow({
+    required this.icon,
+    required this.accent,
+    required this.label,
+    required this.muted,
+    required this.onTap,
+    required this.trailing,
+  });
+
+  final IconData icon;
+  final Color accent;
+  final String label;
+  final bool muted;
+  final VoidCallback onTap;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: theme.input.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: theme.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: accent, size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: muted ? theme.mutedForeground : theme.foreground,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-            // View History
-            Center(
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const FinancialHistoryPage(),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "View Financial History",
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.arrow_forward, color: color, size: 16),
-                    ],
-                  ),
-                ),
+class _TagChip extends StatelessWidget {
+  const _TagChip({
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? accent.withValues(alpha: 0.14) : theme.muted,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? accent : theme.border,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? accent : theme.mutedForeground,
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddTagChip extends StatelessWidget {
+  const _AddTagChip({required this.accent, required this.onTap});
+
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: accent.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add_rounded, color: accent, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              'Add tag',
+              style: TextStyle(
+                color: accent,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryCard extends StatelessWidget {
+  const _HistoryCard({required this.accent});
+
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const FinancialHistoryPage()),
+        );
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(Icons.history_rounded, color: accent, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Financial history',
+                    style: TextStyle(
+                      color: theme.foreground,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Review and edit previous entries.',
+                    style: TextStyle(
+                      color: theme.mutedForeground,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_rounded,
+              color: theme.mutedForeground,
+              size: 18,
             ),
           ],
         ),

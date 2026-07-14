@@ -1,44 +1,42 @@
 import 'package:flutter/material.dart';
 
-// ─── Palette (matches home_page.dart) ─────────────────────────────────────────
-const _kPrimary = Color(0xFF7C4DFF);
-const _kBg = Color(0xFF0B0B0D);
-const _kCard = Color(0xFF13101C);
-const _kBorder = Color(0xFF251C38);
-const _kMuted = Color(0xFF6B7A8D);
+import '../theme/app_theme.dart';
 
 class BottomNav extends StatelessWidget {
+  const BottomNav({super.key, required this.currentIndex, required this.onTap});
+
   final int currentIndex;
   final ValueChanged<int> onTap;
 
-  const BottomNav({super.key, required this.currentIndex, required this.onTap});
-
   static const _items = <_NavItem>[
-    _NavItem(icon: Icons.article_rounded, label: 'Snippets'),
-    _NavItem(icon: Icons.shield_rounded, label: 'Accounts'),
     _NavItem(icon: Icons.home_rounded, label: 'Home'),
+    _NavItem(icon: Icons.article_rounded, label: 'Almanac'),
+    _NavItem(icon: Icons.add_rounded, label: 'Add', isAction: true),
     _NavItem(icon: Icons.schedule_rounded, label: 'Prayer'),
     _NavItem(icon: Icons.pie_chart_rounded, label: 'Finance'),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
     return Container(
-      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _kBorder, width: 1),
+        color: theme.sidebar,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.border, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
+            color: Colors.black.withValues(alpha: 0.24),
             blurRadius: 28,
             spreadRadius: 2,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: _kPrimary.withValues(alpha: 0.08),
+            color: theme.primary.withValues(alpha: 0.08),
             blurRadius: 40,
             spreadRadius: -4,
             offset: const Offset(0, -2),
@@ -49,12 +47,18 @@ class BottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(_items.length, (i) {
           final item = _items[i];
-          final isSelected = i == currentIndex;
-          return _NavButton(
-            icon: item.icon,
-            label: item.label,
-            isSelected: isSelected,
-            onTap: () => onTap(i),
+          if (item.isAction) {
+            return _ActionButton(theme: theme, onTap: () => onTap(i));
+          }
+
+          return Expanded(
+            child: _NavButton(
+              icon: item.icon,
+              label: item.label,
+              isSelected: i == currentIndex,
+              theme: theme,
+              onTap: () => onTap(i),
+            ),
           );
         }),
       ),
@@ -63,71 +67,117 @@ class BottomNav extends StatelessWidget {
 }
 
 class _NavItem {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    this.isAction = false,
+  });
+
   final IconData icon;
   final String label;
-  const _NavItem({required this.icon, required this.label});
+  final bool isAction;
 }
 
 class _NavButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
   const _NavButton({
     required this.icon,
     required this.label,
     required this.isSelected,
+    required this.theme,
     required this.onTap,
   });
+
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final ArchivumTheme theme;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 14 : 10,
-          vertical: 8,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? _kPrimary.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              child: Icon(
+      child: Tooltip(
+        message: label,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? theme.primary.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
                 icon,
-                color: isSelected ? _kPrimary : _kMuted,
-                size: isSelected ? 22 : 20,
+                color: isSelected ? theme.primary : theme.mutedForeground,
+                size: 19,
               ),
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 6),
-              AnimatedOpacity(
-                opacity: isSelected ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: _kPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
+              const SizedBox(height: 2),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                width: isSelected ? 4 : 0,
+                height: isSelected ? 4 : 0,
+                decoration: BoxDecoration(
+                  color: theme.primary,
+                  shape: BoxShape.circle,
                 ),
               ),
             ],
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({required this.theme, required this.onTap});
+
+  final ArchivumTheme theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Center(
+        child: Transform.translate(
+          offset: const Offset(0, -13),
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Tooltip(
+              message: 'Add',
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.secondary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: theme.sidebar, width: 4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.secondary.withValues(alpha: 0.34),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.add_rounded,
+                  color: theme.secondaryForeground,
+                  size: 26,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

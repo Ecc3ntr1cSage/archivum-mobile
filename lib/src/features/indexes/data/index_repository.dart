@@ -26,10 +26,13 @@ class SupabaseIndexRepository implements IndexRepository {
       }).toList();
 
       await client.from('index_items').insert(itemsPayload);
+      await client.from('activity_logs').insert({'activity_type': 'index_item_created'});
     }
 
     // Fetch the full index with items
-    return (await getIndex(indexId.toString()))!;
+    final result = await getIndex(indexId.toString());
+    await client.from('activity_logs').insert({'activity_type': 'index_created'});
+    return result!;
   }
 
   @override
@@ -60,6 +63,7 @@ class SupabaseIndexRepository implements IndexRepository {
       for (final id in toDelete) {
         await client.from('index_items').delete().eq('id', id);
       }
+      await client.from('activity_logs').insert({'activity_type': 'index_item_deleted'});
     }
 
     // Update existing items
@@ -81,9 +85,12 @@ class SupabaseIndexRepository implements IndexRepository {
           if (item.status != null) 'status': item.status,
         }).toList(),
       );
+      await client.from('activity_logs').insert({'activity_type': 'index_item_created'});
     }
 
-    return (await getIndex(index.id!))!;
+    final result = await getIndex(index.id!);
+    await client.from('activity_logs').insert({'activity_type': 'index_updated'});
+    return result!;
   }
 
   @override
@@ -92,12 +99,14 @@ class SupabaseIndexRepository implements IndexRepository {
         .from('index_items')
         .update({'status': status})
         .eq('id', itemId);
+    await client.from('activity_logs').insert({'activity_type': 'index_item_updated'});
   }
 
   @override
   Future<void> deleteIndex(String id) async {
     // Items will be cascade-deleted via FK constraint
     await client.from('indexes').delete().eq('id', id);
+    await client.from('activity_logs').insert({'activity_type': 'index_deleted'});
   }
 
   @override

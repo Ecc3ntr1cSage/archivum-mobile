@@ -267,61 +267,79 @@ class _AddQuotePageState extends ConsumerState<AddQuotePage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ..._categories.map((category) {
-                        final isSelected = _selectedCategory == category;
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              _selectedCategory = category;
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(24),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ..._categories.map((category) {
+                          final isSelected = _selectedCategory == category;
+                          final inactiveColor = isDark
+                              ? const Color(0xFF1E293B).withValues(alpha: 0.6)
+                              : Colors.white.withValues(alpha: 0.8);
+                          final tagTextColor = isDark ? Colors.white70 : const Color(0xFF475569);
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () => setState(() => _selectedCategory = category),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? clr.secondary.withValues(alpha: 0.15)
+                                      : inactiveColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? clr.secondary
+                                        : clr.secondary.withValues(alpha: 0.1),
+                                    width: isSelected ? 1.5 : 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 180),
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isSelected
+                                            ? clr.secondary
+                                            : (isDark ? Colors.white24 : const Color(0xFFCBD5E1)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      category,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        color: isSelected ? clr.secondary : tagTextColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        GestureDetector(
+                          onTap: _showAddTagDialog,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            width: 32,
+                            height: 32,
                             decoration: BoxDecoration(
-                              color: isSelected ? clr.secondary : (isDark ? Colors.grey[800] : Colors.white),
-                              border: Border.all(
-                                color: isSelected ? clr.secondary : (isDark ? Colors.grey[700]! : Colors.grey[300]!),
-                              ),
-                              borderRadius: BorderRadius.circular(24),
+                              color: clr.secondary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: clr.secondary.withValues(alpha: 0.2)),
                             ),
-                            child: Text(
-                              category,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: isSelected 
-                                  ? Colors.white 
-                                  : (isDark ? Colors.grey[300] : Colors.grey[700]),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                      InkWell(
-                        onTap: _showAddTagDialog,
-                        borderRadius: BorderRadius.circular(24),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.grey[700] : Colors.grey[200],
-                            border: Border.all(
-                              color: isDark ? Colors.grey[700]! : Colors.grey[200]!,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          child: Icon(
-                            Icons.add,
-                            size: 18,
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                            child: Icon(Icons.add, size: 16, color: clr.secondary),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 32),
                   

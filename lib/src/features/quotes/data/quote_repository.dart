@@ -20,7 +20,9 @@ class SupabaseQuoteRepository implements QuoteRepository {
         .insert(payload)
         .select()
         .single();
-    return _mapToQuote(response);
+    final result = _mapToQuote(response);
+    await client.from('activity_logs').insert({'activity_type': 'quote_created'});
+    return result;
   }
 
   @override
@@ -39,12 +41,15 @@ class SupabaseQuoteRepository implements QuoteRepository {
         .eq('id', quote.id as Object)
         .select()
         .single();
-    return _mapToQuote(response);
+    final result = _mapToQuote(response);
+    await client.from('activity_logs').insert({'activity_type': 'quote_updated'});
+    return result;
   }
 
   @override
   Future<void> deleteQuote(String id) async {
     await client.from('quotes').delete().eq('id', id);
+    await client.from('activity_logs').insert({'activity_type': 'quote_deleted'});
   }
 
   @override

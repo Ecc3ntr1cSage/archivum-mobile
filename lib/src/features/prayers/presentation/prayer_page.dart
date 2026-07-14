@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../data/prayer_repository.dart';
 import '../domain/prayer_day.dart';
 import 'prayer_history_page.dart';
@@ -13,9 +14,6 @@ class PrayerPage extends StatefulWidget {
 }
 
 class _PrayerPageState extends State<PrayerPage> {
-  static const Color _primary = Color(0xFF8A2CE2);
-  static const Color _secondary = Color(0xFFFF8C00);
-
   static const List<String> _prayerNames = [
     'Fajr',
     'Dhuhr',
@@ -52,12 +50,11 @@ class _PrayerPageState extends State<PrayerPage> {
     try {
       final day = await _repo.fetchOrCreatePrayerDay(_activeDate);
       if (mounted) setState(() => _prayerDay = day);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load prayers: $e')),
-        );
-      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load prayers: $error')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -65,66 +62,101 @@ class _PrayerPageState extends State<PrayerPage> {
 
   Future<void> _togglePrayer(String name) async {
     if (_prayerDay == null || _toggling) return;
+
     final currentValue = _prayerDay!.prayerValue(name);
     final newValue = !currentValue;
 
-    // Optimistic update
     setState(() {
       _prayerDay = _prayerDay!.copyWithPrayer(name, newValue);
       _toggling = true;
     });
 
     try {
-      final updated =
-          await _repo.updatePrayer(_prayerDay!.id!, name, newValue);
+      final updated = await _repo.updatePrayer(_prayerDay!.id!, name, newValue);
       if (mounted) setState(() => _prayerDay = updated);
-    } catch (e) {
-      // Revert on error
-      if (mounted) {
-        setState(() => _prayerDay = _prayerDay!.copyWithPrayer(name, currentValue));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update prayer: $e')),
-        );
-      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _prayerDay = _prayerDay!.copyWithPrayer(name, currentValue);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update prayer: $error')),
+      );
     } finally {
       if (mounted) setState(() => _toggling = false);
     }
   }
 
-  /// Format: "Logging prayer for 01/03 (Sunday)"
   String _getLoggingLabel() {
     const weekdays = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-      'Friday', 'Saturday', 'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
     ];
-    final d = _activeDate;
-    final day = weekdays[d.weekday - 1];
-    final dd = d.day.toString().padLeft(2, '0');
-    final mm = d.month.toString().padLeft(2, '0');
-    return 'Logging prayer for $dd/$mm ($day)';
+    final day = weekdays[_activeDate.weekday - 1];
+    final dd = _activeDate.day.toString().padLeft(2, '0');
+    final mm = _activeDate.month.toString().padLeft(2, '0');
+    return '$dd/$mm, $day';
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF080808) : const Color(0xFFF6F6F8);
+    final theme = context.archivumTheme;
     final completed = _prayerDay?.completedCount ?? 0;
     final progress = _prayerDay?.progress ?? 0.0;
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: theme.background,
       body: SafeArea(
+        bottom: false,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ? const _PrayerLoading()
+            : RefreshIndicator(
+                onRefresh: _loadPrayerDay,
+                color: theme.primary,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
                   children: [
-                    _buildHeader(context),
+                    _PrayerHeader(
+                      dateLabel: _getLoggingLabel(),
+                      onHistoryTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PrayerHistoryPage(),
+                          ),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 16),
-                    _buildGoalVisualization(context, completed, progress),
-                    const SizedBox(height: 16),
-                    _buildSchedule(context),
+                    _ProgressPanel(
+                      completed: completed,
+                      progress: progress,
+                      nextPrayer: _nextPrayer,
+                    ),
+                    const SizedBox(height: 18),
+                    _SectionTitle(
+                      title: "Today's prayers",
+                      trailing: '$completed of ${_prayerNames.length}',
+                    ),
+                    const SizedBox(height: 10),
+                    for (final name in _prayerNames) ...[
+                      _PrayerRow(
+                        name: name,
+                        icon: _prayerIcons[name]!,
+                        isDone: _prayerDay?.prayerValue(name) ?? false,
+                        isBusy: _toggling,
+                        onTap: () => _togglePrayer(name),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                   ],
                 ),
               ),
@@ -132,371 +164,343 @@ class _PrayerPageState extends State<PrayerPage> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? const Color(0xFF191121).withValues(alpha:0.8) : const Color(0xFFF7F6F8).withValues(alpha:0.8);
-    final borderColor = isDark
-        ? const Color(0xFF1E293B)
-        : const Color(0xFFF1F5F9);
+  String? get _nextPrayer {
+    for (final prayer in _prayerNames) {
+      if (!(_prayerDay?.prayerValue(prayer) ?? false)) return prayer;
+    }
+    return null;
+  }
+}
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: surface,
-        border: Border(bottom: BorderSide(color: _primary.withValues(alpha:0.1))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
+class _PrayerHeader extends StatelessWidget {
+  const _PrayerHeader({required this.dateLabel, required this.onHistoryTap});
+
+  final String dateLabel;
+  final VoidCallback onHistoryTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return Row(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: theme.primary.withValues(alpha: 0.13),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(Icons.mosque_outlined, color: theme.primary, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _primary.withValues(alpha:0.2),
-                  borderRadius: BorderRadius.circular(8),
+              Text(
+                'Prayers',
+                style: TextStyle(
+                  color: theme.foreground,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
                 ),
-                child: const Icon(Icons.mosque_outlined,
-                    color: _primary, size: 20),
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Prayers',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  Text(
-                    _getLoggingLabel(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 2),
+              Text(
+                dateLabel,
+                style: TextStyle(color: theme.mutedForeground, fontSize: 12),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        Tooltip(
+          message: 'Prayer history',
+          child: IconButton(
+            onPressed: onHistoryTap,
+            style: IconButton.styleFrom(
+              backgroundColor: theme.card,
+              foregroundColor: theme.primary,
+              side: BorderSide(color: theme.border),
+            ),
+            icon: const Icon(Icons.history_rounded, size: 20),
+          ),
+        ),
+      ],
     );
   }
+}
 
-  Widget _buildGoalVisualization(
-      BuildContext context, int completedCount, double progress) {
-    final nextPrayer = _prayerNames
-        .where((n) => !(_prayerDay?.prayerValue(n) ?? false))
-        .firstOrNull;
-    final isAlmostThere = completedCount == _prayerNames.length - 1;
-    final message = completedCount == _prayerNames.length
-        ? "Masha'Allah! You have completed all prayers for today."
-        : isAlmostThere && nextPrayer != null
-            ? "Almost there! Just $nextPrayer left to complete your day."
-            : "Keep going! Complete your prayers for today.";
+class _ProgressPanel extends StatelessWidget {
+  const _ProgressPanel({
+    required this.completed,
+    required this.progress,
+    required this.nextPrayer,
+  });
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -20,
-              right: -20,
-              child: Icon(
-                Icons.auto_awesome,
-                color: Colors.white.withValues(alpha: 0.1),
-                size: 100,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Daily Progress",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _primary,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          "${(progress * 100).toInt()}% Done",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    message,
-                    style: const TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      for (int i = 0; i < 5; i++) ...[
-                        Expanded(
-                          child: Container(
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: i < completedCount
-                                  ? _primary
-                                  : const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
-                        ),
-                        if (i < 4) const SizedBox(width: 4),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+  final int completed;
+  final double progress;
+  final String? nextPrayer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+    final isComplete = completed == 5;
+    final message = isComplete
+        ? "Masha'Allah, all prayers are complete for today."
+        : nextPrayer == null
+        ? 'Keep your day steady.'
+        : '$nextPrayer is next in your daily rhythm.';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.border),
       ),
-    );
-  }
-
-  Widget _buildSchedule(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = isDark ? Colors.white : const Color(0xFF0F172A);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Today's Schedule",
-                style: TextStyle(
-                  color: onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const PrayerHistoryPage(),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(4),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                  child: Row(
-                    children: [
-                      Text(
-                        "View History",
-                        style: TextStyle(
-                          color: _primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Daily progress',
+                      style: TextStyle(
+                        color: theme.mutedForeground,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                       ),
-                      SizedBox(width: 4),
-                      Icon(Icons.history, color: _primary, size: 16),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$completed / 5 complete',
+                      style: TextStyle(
+                        color: theme.foreground,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              _ProgressRing(progress: progress),
             ],
           ),
-          const SizedBox(height: 12),
-          ..._prayerNames.map((name) {
-            final done = _prayerDay?.prayerValue(name) ?? false;
-            final icon = _prayerIcons[name]!;
-            return Column(
-              children: [
-                done
-                    ? _buildCompletedPrayerItem(context, name, icon)
-                    : _buildUpcomingPrayerItem(context, name, icon),
-                const SizedBox(height: 12),
-              ],
-            );
-          }),
-          const SizedBox(height: 100),
+          const SizedBox(height: 14),
+          Text(
+            message,
+            style: TextStyle(
+              color: theme.mutedForeground,
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: List.generate(5, (index) {
+              final done = index < completed;
+              return Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  height: 8,
+                  margin: EdgeInsets.only(right: index == 4 ? 0 : 6),
+                  decoration: BoxDecoration(
+                    color: done
+                        ? theme.primary
+                        : theme.mutedForeground.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              );
+            }),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildCompletedPrayerItem(
-      BuildContext context, String name, IconData icon) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final borderColor =
-        isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
-    final onSurface = isDark ? Colors.white : const Color(0xFF0F172A);
-    final onSurfaceMuted =
-        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+class _ProgressRing extends StatelessWidget {
+  const _ProgressRing({required this.progress});
 
-    return InkWell(
-      onTap: _toggling ? null : () => _togglePrayer(name),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor),
-          boxShadow: [
-            if (!isDark)
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: _primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: _primary),
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return SizedBox(
+      width: 58,
+      height: 58,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: progress,
+            strokeWidth: 6,
+            backgroundColor: theme.mutedForeground.withValues(alpha: 0.14),
+            color: theme.primary,
+            strokeCap: StrokeCap.round,
+          ),
+          Text(
+            '${(progress * 100).round()}%',
+            style: TextStyle(
+              color: theme.foreground,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      color: onSurface,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    "Completed • tap to undo",
-                    style: TextStyle(color: onSurfaceMuted, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.check_circle, color: _primary, size: 28),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _buildUpcomingPrayerItem(
-      BuildContext context, String name, IconData icon) {
-    return InkWell(
-      onTap: _toggling ? null : () => _togglePrayer(name),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _primary,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: _primary.withValues(alpha: 0.2),
-              spreadRadius: 4,
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title, required this.trailing});
+
+  final String title;
+  final String trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: theme.foreground,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
             ),
-          ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: theme.primary.withValues(alpha: 0.11),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            trailing,
+            style: TextStyle(
+              color: theme.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PrayerRow extends StatelessWidget {
+  const _PrayerRow({
+    required this.name,
+    required this.icon,
+    required this.isDone,
+    required this.isBusy,
+    required this.onTap,
+  });
+
+  final String name;
+  final IconData icon;
+  final bool isDone;
+  final bool isBusy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return InkWell(
+      onTap: isBusy ? null : onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDone ? theme.primary.withValues(alpha: 0.12) : theme.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDone ? theme.primary.withValues(alpha: 0.4) : theme.border,
+          ),
         ),
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
+                color: isDone
+                    ? theme.primary.withValues(alpha: 0.16)
+                    : theme.muted,
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: Colors.white),
+              child: Icon(
+                icon,
+                color: isDone ? theme.primary : theme.mutedForeground,
+                size: 21,
+              ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: theme.foreground,
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
+                  const SizedBox(height: 3),
                   Text(
-                    "Not prayed yet • tap to mark",
+                    isDone ? 'Completed, tap to undo' : 'Pending, tap to mark',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: theme.mutedForeground,
                       fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
-            Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: _secondary,
-                shape: BoxShape.circle,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: Icon(
+                isDone ? Icons.check_circle_rounded : Icons.add_circle_outline,
+                key: ValueKey(isDone),
+                color: isDone ? theme.primary : theme.mutedForeground,
+                size: 25,
               ),
-              child: const Icon(Icons.add, color: Colors.white, size: 24),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PrayerLoading extends StatelessWidget {
+  const _PrayerLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return Center(
+      child: CircularProgressIndicator(color: theme.primary, strokeWidth: 2),
     );
   }
 }

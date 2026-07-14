@@ -197,7 +197,9 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
   Future<void> _loadTags() async {
     if (!mounted) return;
     try {
-      final tags = await ref.read(accountRepositoryProvider).getTags('credential');
+      final tags = await ref
+          .read(accountRepositoryProvider)
+          .getTags('credential');
       if (mounted) {
         setState(() {
           _tags = tags;
@@ -289,16 +291,24 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
       final account = Account(
         userId: supabase.auth.currentUser?.id,
         title: _titleController.text.trim(),
-        email: _emailController.text.trim().isNotEmpty && _loginMethod == LoginMethod.emailPassword
+        email:
+            _emailController.text.trim().isNotEmpty &&
+                _loginMethod == LoginMethod.emailPassword
             ? _emailController.text.trim()
             : null,
-        username: _usernameController.text.trim().isNotEmpty && _loginMethod == LoginMethod.emailPassword
+        username:
+            _usernameController.text.trim().isNotEmpty &&
+                _loginMethod == LoginMethod.emailPassword
             ? _usernameController.text.trim()
             : null,
-        password: _passwordController.text.trim().isNotEmpty && _loginMethod == LoginMethod.emailPassword
+        password:
+            _passwordController.text.trim().isNotEmpty &&
+                _loginMethod == LoginMethod.emailPassword
             ? _passwordController.text.trim()
             : null,
-        method: _loginMethod == LoginMethod.emailPassword ? 'email-password' : 'sso',
+        method: _loginMethod == LoginMethod.emailPassword
+            ? 'email-password'
+            : 'sso',
         provider: _selectedProvider != null && _loginMethod == LoginMethod.sso
             ? _selectedProvider.toString().split('.').last
             : null,
@@ -309,7 +319,7 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
       final newAccount = await repository.createAccount(account);
 
       if (mounted) {
-        // Convert inserted account to Map<String, String> to match AccountsPage
+        // Convert inserted account to a simple result payload for callers.
         final result = <String, String>{
           'title': newAccount.title,
           'email': newAccount.email ?? '',
@@ -568,7 +578,9 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _tags.contains(_selectedTag) ? _selectedTag : null,
+                        initialValue: _tags.contains(_selectedTag)
+                            ? _selectedTag
+                            : null,
                         icon: const Icon(
                           Icons.keyboard_arrow_down,
                           color: Color(0xFF94A3B8),
@@ -577,8 +589,9 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
                             ? const Color(0xFF1E293B)
                             : const Color(0xFFF7F6F8),
                         style: TextStyle(
-                          color:
-                              isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                           fontSize: 16,
                         ),
                         decoration: InputDecoration(
@@ -594,8 +607,9 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                BorderSide(color: primary.withValues(alpha: 0.2)),
+                            borderSide: BorderSide(
+                              color: primary.withValues(alpha: 0.2),
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -603,10 +617,7 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
                           ),
                         ),
                         items: _tags.map((tag) {
-                          return DropdownMenuItem(
-                            value: tag,
-                            child: Text(tag),
-                          );
+                          return DropdownMenuItem(value: tag, child: Text(tag));
                         }).toList(),
                         onChanged: (v) {
                           setState(() {
@@ -633,7 +644,9 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
                         ),
                         child: Icon(
                           Icons.add,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                         ),
                       ),
                     ),

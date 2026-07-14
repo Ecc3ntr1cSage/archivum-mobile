@@ -3,22 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/providers/activity_provider.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_controller.dart';
+
 import '../../auth/domain/auth_state_provider.dart';
 import '../../agent/presentation/chat_page.dart';
 import '../../accounts/presentation/add_credential_page.dart';
 import '../../indexes/presentation/add_index_page.dart';
 import '../../insights/presentation/insight_page.dart';
 import '../../notes/presentation/add_note_page.dart';
-import '../../quotes/presentation/add_quote_page.dart';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
-const _kPrimary   = Color(0xFF7C4DFF);
-const _kSecondary = Color(0xFFFF8A50);
-const _kBg        = Color(0xFF0B0B0D);
-const _kCard      = Color(0xFF13101C);
-const _kBorder    = Color(0xFF251C38);
-const _kMuted     = Color(0xFF6B7A8D);
-
 // ─────────────────────────────────────────────────────────────────────────────
 // HomePage
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,15 +23,17 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authAsync   = ref.watch(authStateProvider);
-    final user        = authAsync.asData?.value.session?.user;
-    final displayName = (user?.userMetadata?['full_name'] as String?)
-        ?? user?.email?.split('@').first
-        ?? 'there';
+    final theme = context.archivumTheme;
+    final authAsync = ref.watch(authStateProvider);
+    final user = authAsync.asData?.value.session?.user;
+    final displayName =
+        (user?.userMetadata?['full_name'] as String?) ??
+        user?.email?.split('@').first ??
+        'there';
     final avatarUrl = user?.userMetadata?['avatar_url'] as String?;
 
     return ColoredBox(
-      color: _kBg,
+      color: theme.background,
       child: SafeArea(
         bottom: false,
         child: CustomScrollView(
@@ -79,7 +77,7 @@ class HomePage extends ConsumerWidget {
 class _TopBarDelegate extends SliverPersistentHeaderDelegate {
   const _TopBarDelegate({required this.name, this.avatarUrl});
 
-  final String  name;
+  final String name;
   final String? avatarUrl;
 
   static const _height = 72.0;
@@ -106,20 +104,23 @@ class _TopBarDelegate extends SliverPersistentHeaderDelegate {
 // ─────────────────────────────────────────────────────────────────────────────
 // Top bar widget
 // ─────────────────────────────────────────────────────────────────────────────
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   const _TopBar({required this.name, this.avatarUrl});
 
-  final String  name;
+  final String name;
   final String? avatarUrl;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = context.archivumTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: _kBg,
-        border: Border(bottom: BorderSide(color: _kBorder, width: 0.8)),
+        color: theme.background,
+        border: Border(bottom: BorderSide(color: theme.border, width: 0.8)),
       ),
       child: Row(
         children: [
@@ -133,16 +134,12 @@ class _TopBar extends StatelessWidget {
             children: [
               const Text(
                 'Welcome back,',
-                style: TextStyle(
-                  color: _kMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
               ),
               Text(
                 _capitalise(name),
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: theme.foreground,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
@@ -151,7 +148,9 @@ class _TopBar extends StatelessWidget {
           ),
           const Spacer(),
           _NavIconBtn(
-            icon: Icons.settings_outlined,
+            icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+            onTap: () =>
+                ref.read(themeControllerProvider.notifier).toggle(isDark),
           ),
         ],
       ),
@@ -166,20 +165,21 @@ class _TopBar extends StatelessWidget {
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.name, this.avatarUrl});
 
-  final String  name;
+  final String name;
   final String? avatarUrl;
 
   @override
   Widget build(BuildContext context) {
-    const borderColor = _kPrimary;
+    final theme = context.archivumTheme;
+
     return Container(
       width: 42,
       height: 42,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: borderColor, width: 2),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF9B59FF), Color(0xFF5829D4)],
+        border: Border.all(color: theme.primary, width: 2),
+        gradient: LinearGradient(
+          colors: [theme.primary, theme.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -197,56 +197,44 @@ class _Avatar extends StatelessWidget {
   }
 
   Widget _initials() => Center(
-        child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : 'A',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-          ),
-        ),
-      );
+    child: Text(
+      name.isNotEmpty ? name[0].toUpperCase() : 'A',
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+        fontSize: 16,
+      ),
+    ),
+  );
 }
 
 // ─── Small nav icon button ────────────────────────────────────────────────────
 class _NavIconBtn extends StatelessWidget {
-  const _NavIconBtn({required this.icon, this.badge = false});
+  const _NavIconBtn({required this.icon, required this.onTap});
 
   final IconData icon;
-  final bool     badge;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    Widget btn = Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: _kCard,
-        shape: BoxShape.circle,
-        border: Border.all(color: _kBorder),
-      ),
-      child: Icon(icon, color: Colors.white70, size: 18),
-    );
+    final theme = context.archivumTheme;
 
-    if (!badge) return btn;
-
-    return Stack(
-      children: [
-        btn,
-        Positioned(
-          top: 7,
-          right: 7,
-          child: Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: _kSecondary,
-              shape: BoxShape.circle,
-              border: Border.all(color: _kBg, width: 1.5),
-            ),
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: theme.card,
+          shape: BoxShape.circle,
+          border: Border.all(color: theme.border),
         ),
-      ],
+        child: Icon(
+          icon,
+          color: theme.foreground.withValues(alpha: 0.72),
+          size: 18,
+        ),
+      ),
     );
   }
 }
@@ -259,7 +247,8 @@ class _DateBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now     = DateTime.now();
+    final theme = context.archivumTheme;
+    final now = DateTime.now();
     final dateStr = DateFormat('EEE, d MMMM').format(now);
 
     return Padding(
@@ -269,17 +258,17 @@ class _DateBanner extends StatelessWidget {
         children: [
           Text(
             dateStr,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: theme.foreground,
               fontSize: 30,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.6,
             ),
           ),
           const SizedBox(height: 5),
-          const Text(
+          Text(
             'Everything looks good for today.',
-            style: TextStyle(color: _kMuted, fontSize: 13),
+            style: TextStyle(color: theme.mutedForeground, fontSize: 13),
           ),
         ],
       ),
@@ -296,24 +285,26 @@ class _BentoGrid extends StatelessWidget {
   // ── Navigation helpers ────────────────────────────────────────────────────
 
   void _openAgent(BuildContext context) {
+    final theme = context.archivumTheme;
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => Scaffold(
-          backgroundColor: _kBg,
+          backgroundColor: theme.background,
           appBar: AppBar(
-            backgroundColor: _kCard,
+            backgroundColor: theme.card,
             elevation: 0,
             surfaceTintColor: Colors.transparent,
-            title: const Text(
+            title: Text(
               'Archivum AI',
               style: TextStyle(
-                color: Colors.white,
+                color: theme.foreground,
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
               ),
             ),
-            iconTheme: const IconThemeData(color: Colors.white),
+            iconTheme: IconThemeData(color: theme.foreground),
           ),
           body: const AgentChatPage(),
         ),
@@ -321,20 +312,25 @@ class _BentoGrid extends StatelessWidget {
     );
   }
 
-  void _openInsights(BuildContext context) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const InsightPage()));
+  void _openInsights(BuildContext context) => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const InsightPage()),
+  );
 
-  void _openAddNote(BuildContext context) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const AddNotePage()));
+  void _openAddNote(BuildContext context) => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const AddNotePage()),
+  );
 
-  void _openAddQuote(BuildContext context) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const AddQuotePage()));
+  void _openAddIndex(BuildContext context) => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const AddIndexPage()),
+  );
 
-  void _openAddIndex(BuildContext context) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const AddIndexPage()));
-
-    void _openAddAccounts(BuildContext context) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCredentialPage()));
+  void _openAddAccounts(BuildContext context) => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const AddCredentialPage()),
+  );
 
   Future<void> _openDailyDev() async {
     final uri = Uri.parse('https://app.daily.dev');
@@ -345,6 +341,8 @@ class _BentoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
     return Column(
       children: [
         // Row 1 — AI card (gradient) + Insights
@@ -354,7 +352,9 @@ class _BentoGrid extends StatelessWidget {
             children: [
               Expanded(child: _AiCard(onTap: () => _openAgent(context))),
               const SizedBox(width: 12),
-              Expanded(child: _InsightsCard(onTap: () => _openInsights(context))),
+              Expanded(
+                child: _InsightsCard(onTap: () => _openInsights(context)),
+              ),
             ],
           ),
         ),
@@ -368,17 +368,19 @@ class _BentoGrid extends StatelessWidget {
               child: _QuickAddCard(
                 label: 'Add Note',
                 icon: Icons.edit_note_rounded,
-                bgColor: _kPrimary,
+                bgColor: theme.primary,
+                fgColor: theme.primaryForeground,
                 onTap: () => _openAddNote(context),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _QuickAddCard(
-                label: 'Add Quote',
-                icon: Icons.format_quote_rounded,
-                bgColor: _kSecondary,
-                onTap: () => _openAddQuote(context),
+                label: 'Add Account',
+                icon: Icons.add_moderator_rounded,
+                bgColor: theme.secondary,
+                fgColor: theme.secondaryForeground,
+                onTap: () => _openAddAccounts(context),
               ),
             ),
             const SizedBox(width: 12),
@@ -386,8 +388,9 @@ class _BentoGrid extends StatelessWidget {
               child: _QuickAddCard(
                 label: 'Add Index',
                 icon: Icons.list_alt_rounded,
-                bgColor: const Color(0xFF1C1430),
-                iconColor: _kPrimary,
+                bgColor: theme.accent,
+                fgColor: theme.accentForeground,
+                iconColor: theme.primary,
                 onTap: () => _openAddIndex(context),
               ),
             ),
@@ -399,14 +402,7 @@ class _BentoGrid extends StatelessWidget {
         // Row 3 — Add Account + daily.dev
         SizedBox(
           height: 96, // Fixed height to make it slightly taller than squares
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _AddAccountCard(onTap: () => _openAddAccounts(context))),
-              const SizedBox(width: 12),
-              Expanded(child: _DailyDevCard(onTap: _openDailyDev)),
-            ],
-          ),
+          child: _DailyDevCard(onTap: _openDailyDev),
         ),
       ],
     );
@@ -421,21 +417,23 @@ class _AiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: 128),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF8F30F0), Color(0xFF3B1588)],
+          gradient: LinearGradient(
+            colors: [theme.primary, theme.secondary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: _kPrimary.withValues(alpha: 0.4),
+              color: theme.primary.withValues(alpha: 0.28),
               blurRadius: 24,
               offset: const Offset(0, 10),
             ),
@@ -444,26 +442,26 @@ class _AiCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(
+            Icon(
               Icons.auto_awesome_rounded,
-              color: Colors.white,
+              color: theme.primaryForeground,
               size: 28,
             ),
             const Spacer(),
-            const Text(
+            Text(
               'Archivum AI',
               style: TextStyle(
-                color: Colors.white,
+                color: theme.primaryForeground,
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.3,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Summarize your day',
               style: TextStyle(
-                color: Color(0xFFD4ADFF),
+                color: theme.primaryForeground.withValues(alpha: 0.72),
                 fontSize: 12,
               ),
             ),
@@ -482,15 +480,17 @@ class _InsightsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: 128),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: _kCard,
+          color: theme.card,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _kBorder),
+          border: Border.all(color: theme.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -499,29 +499,29 @@ class _InsightsCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: _kSecondary.withValues(alpha: 0.12),
+                color: theme.secondary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.insights_rounded,
-                color: _kSecondary,
+                color: theme.secondary,
                 size: 22,
               ),
             ),
             const Spacer(),
-            const Text(
+            Text(
               'Insights',
               style: TextStyle(
-                color: Colors.white,
+                color: theme.cardForeground,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.3,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'View trends',
-              style: TextStyle(color: _kMuted, fontSize: 12),
+              style: TextStyle(color: theme.mutedForeground, fontSize: 12),
             ),
           ],
         ),
@@ -536,19 +536,23 @@ class _QuickAddCard extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.bgColor,
+    required this.fgColor,
     this.iconColor,
     required this.onTap,
   });
 
-  final String     label;
-  final IconData   icon;
-  final Color      bgColor;
-  final Color?     iconColor;
+  final String label;
+  final IconData icon;
+  final Color bgColor;
+  final Color fgColor;
+  final Color? iconColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final isDark = iconColor != null; // "dark" card variant uses iconColor
+    final theme = context.archivumTheme;
+
     return GestureDetector(
       onTap: onTap,
       child: AspectRatio(
@@ -558,7 +562,7 @@ class _QuickAddCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(20),
-            border: isDark ? Border.all(color: _kBorder) : null,
+            border: isDark ? Border.all(color: theme.border) : null,
             boxShadow: isDark
                 ? null
                 : [
@@ -577,21 +581,17 @@ class _QuickAddCard extends StatelessWidget {
                 height: 34,
                 decoration: BoxDecoration(
                   color: isDark
-                      ? _kPrimary.withValues(alpha: 0.18)
-                      : Colors.white.withValues(alpha: 0.22),
+                      ? theme.primary.withValues(alpha: 0.18)
+                      : fgColor.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: isDark ? iconColor : Colors.white,
-                ),
+                child: Icon(icon, size: 18, color: iconColor ?? fgColor),
               ),
               const Spacer(),
               Text(
                 label.toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: fgColor,
                   fontSize: 9,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.8,
@@ -606,77 +606,6 @@ class _QuickAddCard extends StatelessWidget {
 }
 
 // ─── Add Account card ─────────────────────────────────────────────────────────
-class _AddAccountCard extends StatelessWidget {
-  const _AddAccountCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        decoration: BoxDecoration(
-          color: _kCard,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _kBorder, width: 1.2),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                ),
-              ),
-              child: const Icon(
-                Icons.add_moderator_rounded,
-                color: Colors.white70,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'NEW ACCOUNT',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'Secure your keys',
-                    style: TextStyle(color: _kMuted, fontSize: 10),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: _kPrimary.withValues(alpha: 0.8),
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ─── daily.dev card ───────────────────────────────────────────────────────────
 class _DailyDevCard extends StatelessWidget {
   const _DailyDevCard({required this.onTap});
@@ -685,39 +614,41 @@ class _DailyDevCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         decoration: BoxDecoration(
-          color: const Color(0xFF0C0F19),
+          color: theme.muted,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF1C2233)),
+          border: Border.all(color: theme.border),
         ),
         child: Row(
           children: [
             Container(
               width: 42,
               height: 42,
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: theme.foreground,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.terminal_rounded,
-                color: Colors.black,
+                color: theme.background,
                 size: 20,
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'daily.dev',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: theme.foreground,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
@@ -725,14 +656,17 @@ class _DailyDevCard extends StatelessWidget {
                   SizedBox(height: 2),
                   Text(
                     'Dev news & feeds',
-                    style: TextStyle(color: _kMuted, fontSize: 10),
+                    style: TextStyle(
+                      color: theme.mutedForeground,
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.open_in_new_rounded,
-              color: Colors.white30,
+              color: theme.mutedForeground,
               size: 14,
             ),
           ],
@@ -745,121 +679,217 @@ class _DailyDevCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Activity Tracker
 // ─────────────────────────────────────────────────────────────────────────────
-class _ActivityTracker extends StatelessWidget {
+class _ActivityTracker extends ConsumerWidget {
   const _ActivityTracker();
 
-  static const _data   = [8.0, 12.0, 9.0, 16.0, 11.0, 19.0, 14.0];
-  static const _labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
   @override
-  Widget build(BuildContext context) {
-    final total = _data.reduce((a, b) => a + b).toInt();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = context.archivumTheme;
+    final activityAsync = ref.watch(activityLast7DaysProvider);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: theme.card,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: theme.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header ────────────────────────────────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Activity Tracker',
-                    style: TextStyle(color: _kMuted, fontSize: 12),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$total entries this week',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _kPrimary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Last 7 days',
-                  style: TextStyle(
-                    color: _kPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
+      child: activityAsync.when(
+        loading: () => _buildShimmer(theme),
+        error: (error, _) => _buildError(ref, theme),
+        data: (days) => _buildChart(days, theme),
+      ),
+    );
+  }
+
+  Widget _buildShimmer(ArchivumTheme theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 100,
+          height: 12,
+          decoration: BoxDecoration(
+            color: theme.border,
+            borderRadius: BorderRadius.circular(4),
           ),
-
-          const SizedBox(height: 22),
-
-          // ── Chart ──────────────────────────────────────────────────────
-          SizedBox(
-            height: 120,
-            child: CustomPaint(
-              painter: _ChartPainter(data: _data),
-              child: const SizedBox.expand(),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: 180,
+          height: 20,
+          decoration: BoxDecoration(
+            color: theme.border,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(height: 22),
+        SizedBox(
+          height: 120,
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.primary.withValues(alpha: 0.5),
+              ),
             ),
           ),
+        ),
+      ],
+    );
+  }
 
-          const SizedBox(height: 10),
-
-          // ── Day labels ─────────────────────────────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: _labels
-                .map(
-                  (l) => Text(
-                    l,
-                    style: const TextStyle(
-                      color: _kMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                )
-                .toList(),
+  Widget _buildError(WidgetRef ref, ArchivumTheme theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.error_outline, color: theme.mutedForeground, size: 32),
+        const SizedBox(height: 8),
+        Text(
+          'Could not load activity',
+          style: TextStyle(color: theme.mutedForeground, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => ref.invalidate(activityLast7DaysProvider),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: theme.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Retry',
+              style: TextStyle(
+                color: theme.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChart(List<ActivityDay> days, ArchivumTheme theme) {
+    final data = days.map((d) => d.total.toDouble()).toList();
+    final labels = days
+        .map((d) => DateFormat('E').format(d.day).substring(0, 3))
+        .toList();
+    final total = days.fold<int>(0, (sum, d) => sum + d.total);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Header ────────────────────────────────────────────────────
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Activity Tracker',
+                  style: TextStyle(color: theme.mutedForeground, fontSize: 12),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$total entries this week',
+                  style: TextStyle(
+                    color: theme.foreground,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: theme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Last 7 days',
+                style: TextStyle(
+                  color: theme.primary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 22),
+
+        // ── Chart ──────────────────────────────────────────────────────
+        SizedBox(
+          height: 120,
+          child: CustomPaint(
+            painter: _ChartPainter(
+              data: data,
+              lineColor: theme.primary,
+              fillColor: theme.primary.withValues(alpha: 0.32),
+              cardColor: theme.card,
+            ),
+            child: const SizedBox.expand(),
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // ── Day labels ─────────────────────────────────────────────────
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: labels
+              .map(
+                (l) => Text(
+                  l,
+                  style: TextStyle(
+                    color: theme.mutedForeground,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 }
 
 // ─── Chart painter ────────────────────────────────────────────────────────────
 class _ChartPainter extends CustomPainter {
-  const _ChartPainter({required this.data});
+  const _ChartPainter({
+    required this.data,
+    required this.lineColor,
+    required this.fillColor,
+    required this.cardColor,
+  });
 
   final List<double> data;
+  final Color lineColor;
+  final Color fillColor;
+  final Color cardColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (data.length < 2) return;
 
     final maxVal = data.reduce((a, b) => a > b ? a : b);
-    final step   = size.width / (data.length - 1);
-    const pad    = 0.08; // vertical padding ratio
+    final step = size.width / (data.length - 1);
+    const pad = 0.08; // vertical padding ratio
 
     final pts = List<Offset>.generate(data.length, (i) {
       final x = i * step;
-      final y = size.height * pad +
-          (1 - data[i] / maxVal) * size.height * (1 - pad * 2);
+      final ratio = maxVal == 0 ? 0.5 : data[i] / maxVal;
+      final y = size.height * pad + (1 - ratio) * size.height * (1 - pad * 2);
       return Offset(x, y);
     });
 
@@ -868,9 +898,12 @@ class _ChartPainter extends CustomPainter {
     for (int i = 0; i < pts.length - 1; i++) {
       final midX = (pts[i].dx + pts[i + 1].dx) / 2;
       curvePath.cubicTo(
-        midX, pts[i].dy,
-        midX, pts[i + 1].dy,
-        pts[i + 1].dx, pts[i + 1].dy,
+        midX,
+        pts[i].dy,
+        midX,
+        pts[i + 1].dy,
+        pts[i + 1].dx,
+        pts[i + 1].dy,
       );
     }
 
@@ -883,10 +916,10 @@ class _ChartPainter extends CustomPainter {
     canvas.drawPath(
       fillPath,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0x5E7C4DFF), Color(0x007C4DFF)],
+          colors: [fillColor, fillColor.withValues(alpha: 0)],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
     );
 
@@ -894,15 +927,15 @@ class _ChartPainter extends CustomPainter {
     canvas.drawPath(
       curvePath,
       Paint()
-        ..color = const Color(0xFF7C4DFF)
+        ..color = lineColor
         ..strokeWidth = 2.8
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke,
     );
 
     // ── Data-point dots ──────────────────────────────────────────────
-    final outerDot = Paint()..color = const Color(0xFF7C4DFF);
-    final innerDot = Paint()..color = _kCard;
+    final outerDot = Paint()..color = lineColor;
+    final innerDot = Paint()..color = cardColor;
 
     for (final pt in pts) {
       canvas.drawCircle(pt, 4.5, outerDot);
@@ -911,5 +944,9 @@ class _ChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ChartPainter old) => old.data != data;
+  bool shouldRepaint(covariant _ChartPainter old) =>
+      old.data != data ||
+      old.lineColor != lineColor ||
+      old.fillColor != fillColor ||
+      old.cardColor != cardColor;
 }

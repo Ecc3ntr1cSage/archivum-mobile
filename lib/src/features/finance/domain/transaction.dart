@@ -6,6 +6,7 @@ class TransactionModel {
   final double amount;
   final String details;
   final String tag;
+  final DateTime? date;
   final DateTime createdAt;
 
   TransactionModel({
@@ -14,6 +15,9 @@ class TransactionModel {
     required this.amount,
     required this.details,
     required this.tag,
+    this.date,
     required this.createdAt,
   });
+
+  DateTime get displayDate => date ?? createdAt;
 }

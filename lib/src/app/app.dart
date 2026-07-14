@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_theme.dart';
+import '../core/theme/theme_controller.dart';
 import '../features/auth/domain/auth_state_provider.dart';
 import '../features/auth/presentation/login_page.dart';
 import 'shell.dart';
@@ -11,12 +12,13 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authStateAsync = ref.watch(authStateProvider);
+    final themeMode = ref.watch(themeControllerProvider);
 
     return MaterialApp(
       title: 'Archivum',
       theme: lightTheme,
       darkTheme: darkTheme,
-      themeMode: ThemeMode.dark,
+      themeMode: themeMode,
       home: authStateAsync.when(
         data: (authState) {
           final session = authState.session;
@@ -25,14 +27,11 @@ class App extends ConsumerWidget {
           }
           return const LoginPage();
         },
-        loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
-        error: (error, _) => Scaffold(
-          body: Center(child: Text('Error: $error')),
-        ),
+        loading: () =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
+        error: (error, _) =>
+            Scaffold(body: Center(child: Text('Error: $error'))),
       ),
     );
   }
 }
-

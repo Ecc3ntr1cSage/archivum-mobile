@@ -20,7 +20,9 @@ class SupabaseNoteRepository implements NoteRepository {
         .insert(payload)
         .select()
         .single();
-    return _mapToNote(response);
+    final result = _mapToNote(response);
+    await client.from('activity_logs').insert({'activity_type': 'note_created'});
+    return result;
   }
 
   @override
@@ -39,12 +41,15 @@ class SupabaseNoteRepository implements NoteRepository {
         .eq('id', note.id as Object)
         .select()
         .single();
-    return _mapToNote(response);
+    final result = _mapToNote(response);
+    await client.from('activity_logs').insert({'activity_type': 'note_updated'});
+    return result;
   }
 
   @override
   Future<void> deleteNote(String id) async {
     await client.from('notes').delete().eq('id', id);
+    await client.from('activity_logs').insert({'activity_type': 'note_deleted'});
   }
 
   @override

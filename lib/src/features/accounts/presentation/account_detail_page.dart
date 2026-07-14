@@ -1,49 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/providers/account_repository_provider.dart';
+import '../../../core/theme/app_theme.dart';
 import '../domain/account.dart';
-import 'add_credential_page.dart' show InputField, SsoProviderButton, LoginMethod, SsoProvider;
+import 'add_credential_page.dart' show LoginMethod, SsoProvider;
 
 class AccountDetailPage extends ConsumerStatefulWidget {
-  final Account account;
   const AccountDetailPage({required this.account, super.key});
+
+  final Account account;
 
   @override
   ConsumerState<AccountDetailPage> createState() => _AccountDetailPageState();
 }
 
-class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
-    with SingleTickerProviderStateMixin {
+class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
   bool _isEditing = false;
   bool _isSaving = false;
   late Account _account;
 
-  // Controllers for editing
   late TextEditingController _titleCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _usernameCtrl;
   late TextEditingController _passwordCtrl;
+
   LoginMethod _loginMethod = LoginMethod.emailPassword;
   SsoProvider? _selectedProvider;
-
   List<String> _tags = [];
   String? _selectedTag;
 
-  late AnimationController _animController;
-  late Animation<double> _fadeAnim;
+  bool get _isSso => _account.method == 'sso';
 
   @override
   void initState() {
     super.initState();
     _account = widget.account;
     _initControllers();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
-    _animController.forward();
     Future.microtask(_loadTags);
   }
 
@@ -56,32 +50,28 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
         ? LoginMethod.sso
         : LoginMethod.emailPassword;
     _selectedTag = _account.tags;
+    _selectedProvider = _providerFromText(_account.provider);
+  }
 
-    if (_account.method == 'sso' && _account.provider != null) {
-      switch (_account.provider!.toLowerCase()) {
-        case 'google':
-          _selectedProvider = SsoProvider.google;
-          break;
-        case 'github':
-          _selectedProvider = SsoProvider.github;
-          break;
-        case 'facebook':
-          _selectedProvider = SsoProvider.facebook;
-          break;
-      }
+  SsoProvider? _providerFromText(String? provider) {
+    switch (provider?.toLowerCase()) {
+      case 'google':
+        return SsoProvider.google;
+      case 'github':
+        return SsoProvider.github;
+      case 'facebook':
+        return SsoProvider.facebook;
+      default:
+        return null;
     }
   }
 
   Future<void> _loadTags() async {
     if (!mounted) return;
     try {
-      final tags =
-          await ref.read(accountRepositoryProvider).getTags('credential');
-      if (mounted) {
-        setState(() {
-          _tags = tags;
-        });
-      }
+      final tags = await ref.read(accountRepositoryProvider).getTags('credential');
+      if (!mounted) return;
+      setState(() => _tags = tags);
     } catch (_) {}
   }
 
@@ -91,7 +81,6 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
     _emailCtrl.dispose();
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
-    _animController.dispose();
     super.dispose();
   }
 
@@ -102,14 +91,15 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
       );
       return;
     }
+
     setState(() => _isSaving = true);
+
     try {
       final updated = Account(
         id: _account.id,
         userId: _account.userId,
         title: _titleCtrl.text.trim(),
-        method:
-            _loginMethod == LoginMethod.sso ? 'sso' : 'email-password',
+        method: _loginMethod == LoginMethod.sso ? 'sso' : 'email-password',
         email: _loginMethod == LoginMethod.emailPassword &&
                 _emailCtrl.text.trim().isNotEmpty
             ? _emailCtrl.text.trim()
@@ -128,36 +118,41 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
         tags: _selectedTag,
         createdAt: _account.createdAt,
       );
-      final result =
-          await ref.read(accountRepositoryProvider).updateAccount(updated);
-      if (mounted) {
-        setState(() {
-          _account = result;
-          _isEditing = false;
-          _isSaving = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Credential updated')),
-        );
-        Navigator.of(context).pop('updated');
-      }
+
+      final result = await ref.read(accountRepositoryProvider).updateAccount(updated);
+      if (!mounted) return;
+
+      setState(() {
+        _account = result;
+        _isEditing = false;
+        _isSaving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Credential updated')),
+      );
+      Navigator.of(context).pop('updated');
     } catch (e) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update: $e')),
-        );
-      }
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update: $e')),
+      );
     }
   }
 
   Future<void> _deleteAccount() async {
+    final theme = context.archivumTheme;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Credential'),
+        backgroundColor: theme.popover,
+        title: Text(
+          'Delete Credential',
+          style: TextStyle(color: theme.popoverForeground),
+        ),
         content: Text(
-          'Are you sure you want to delete "${_account.title}"? This cannot be undone.',
+          'Delete "${_account.title}"? This cannot be undone.',
+          style: TextStyle(color: theme.mutedForeground),
         ),
         actions: [
           TextButton(
@@ -165,9 +160,12 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.destructive,
+              foregroundColor: theme.destructiveForeground,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -176,18 +174,14 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
     if (confirmed != true || !mounted) return;
 
     try {
-      await ref
-          .read(accountRepositoryProvider)
-          .deleteAccount(_account.id!);
-      if (mounted) {
-        Navigator.of(context).pop('deleted');
-      }
+      await ref.read(accountRepositoryProvider).deleteAccount(_account.id!);
+      if (!mounted) return;
+      Navigator.of(context).pop('deleted');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete: $e')),
+      );
     }
   }
 
@@ -198,596 +192,545 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = const Color(0xFF8A2CE2);
-    final accentOrange = const Color(0xFFF97316);
-    final bgColor =
-        isDark ? const Color(0xFF191121) : const Color(0xFFF7F6F8);
-    final headerBgColor = isDark
-        ? const Color(0xFF191121).withValues(alpha: 0.95)
-        : const Color(0xFFF7F6F8).withValues(alpha: 0.95);
-    final cardBg = isDark
-        ? const Color(0xFF0F172A).withValues(alpha: 0.5)
-        : Colors.white;
-    final isSso = _account.method == 'sso';
-
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
-        child: Container(
-          decoration: BoxDecoration(
-            color: headerBgColor,
-            border: Border(
-              bottom: BorderSide(color: primary.withValues(alpha: 0.1)),
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color:
-                          isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      _isEditing ? 'Edit Credential' : _account.title,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark
-                            ? Colors.white
-                            : const Color(0xFF0F172A),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (!_isEditing) ...[
-                    IconButton(
-                      onPressed: () => setState(() => _isEditing = true),
-                      icon: Icon(Icons.edit_outlined, color: primary),
-                      tooltip: 'Edit',
-                    ),
-                    IconButton(
-                      onPressed: _deleteAccount,
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
-                      tooltip: 'Delete',
-                    ),
-                  ] else ...[
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _isEditing = false;
-                          _initControllers();
-                        });
-                      },
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: _isSaving ? null : _saveChanges,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: _isSaving
-                          ? const SizedBox(
-                              height: 16,
-                              width: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white),
-                              ),
-                            )
-                          : const Text('Save'),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: SingleChildScrollView(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          child: _isEditing ? _buildEditForm(isDark, primary, accentOrange) : _buildDetailView(isDark, primary, accentOrange, cardBg, isSso),
-        ),
-      ),
-    );
+  void _cancelEditing() {
+    setState(() {
+      _isEditing = false;
+      _titleCtrl.dispose();
+      _emailCtrl.dispose();
+      _usernameCtrl.dispose();
+      _passwordCtrl.dispose();
+      _initControllers();
+    });
   }
 
-  // ── VIEW MODE ──────────────────────────────────────────────
-  Widget _buildDetailView(bool isDark, Color primary, Color accentOrange,
-      Color cardBg, bool isSso) {
-    final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
-    final subtitleColor = const Color(0xFF64748B);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Hero card
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                primary.withValues(alpha: 0.15),
-                primary.withValues(alpha: 0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: primary.withValues(alpha: 0.15)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  _getIconForTitle(_account.title),
-                  color: primary,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            _account.title,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: titleColor,
-                            ),
-                          ),
-                        ),
-                        if (isSso) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: accentOrange.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'SSO',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: accentOrange,
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (_account.tags != null &&
-                            _account.tags!.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              _account.tags!,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: primary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isSso
-                          ? 'SSO via ${_account.provider ?? 'Unknown'}'
-                          : (_account.email ?? 'No email'),
-                      style:
-                          TextStyle(fontSize: 14, color: subtitleColor),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Details section
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: primary.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'DETAILS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                  color: primary.withValues(alpha: 0.7),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (!isSso) ...[
-                _detailRow('Email', _account.email ?? '—', isDark,
-                    copyable: true, onCopy: () => _copyToClipboard(_account.email ?? '', 'Email')),
-                _divider(primary),
-                _detailRow('Username', _account.username ?? '—', isDark,
-                    copyable: _account.username != null),
-                _divider(primary),
-                _detailRow('Password', _account.password ?? '—', isDark,
-                    isPassword: true,
-                    copyable: _account.password != null,
-                    onCopy: () => _copyToClipboard(_account.password ?? '', 'Password')),
-                _divider(primary),
-              ],
-              _detailRow('Method', _account.method, isDark),
-              if (isSso && _account.provider != null) ...[
-                _divider(primary),
-                _detailRow('Provider', _account.provider!, isDark),
-              ],
-              if (_account.tags != null && _account.tags!.isNotEmpty) ...[
-                _divider(primary),
-                _detailRow('Tag', _account.tags!, isDark),
-              ],
-              if (_account.createdAt != null) ...[
-                _divider(primary),
-                _detailRow(
-                  'Created',
-                  '${_account.createdAt!.year}-${_account.createdAt!.month.toString().padLeft(2, '0')}-${_account.createdAt!.day.toString().padLeft(2, '0')}',
-                  isDark,
-                ),
-              ],
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Delete button
-        OutlinedButton.icon(
-          onPressed: _deleteAccount,
-          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-          label: const Text('Delete Credential',
-              style: TextStyle(color: Colors.redAccent)),
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Colors.redAccent),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-        const SizedBox(height: 80),
-      ],
-    );
+  String _formatDate(DateTime? value) {
+    if (value == null) return 'Recently';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[value.month - 1]} ${value.day}, ${value.year}';
   }
 
-  Widget _detailRow(
-    String label,
-    String value,
-    bool isDark, {
-    bool isPassword = false,
-    bool copyable = false,
-    VoidCallback? onCopy,
-  }) {
-    final labelColor = const Color(0xFF94A3B8);
-    final valueColor = isDark ? Colors.white : const Color(0xFF0F172A);
-
-    return _ObscurableRow(
-      label: label,
-      value: value,
-      labelColor: labelColor,
-      valueColor: valueColor,
-      isPassword: isPassword,
-      copyable: copyable,
-      onCopy: onCopy,
-    );
-  }
-
-  Widget _divider(Color primary) => Divider(
-        height: 24,
-        color: primary.withValues(alpha: 0.07),
-      );
-
-  // ── EDIT MODE ──────────────────────────────────────────────
-  Widget _buildEditForm(bool isDark, Color primary, Color accentOrange) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: primary.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: primary.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InputField(
-            controller: _titleCtrl,
-            label: 'Account Title',
-            hint: 'e.g. GitHub, Netflix',
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Login Method',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF94A3B8),
-            ),
-          ),
-          const SizedBox(height: 6),
-          DropdownButtonFormField<LoginMethod>(
-            initialValue: _loginMethod,
-            icon: const Icon(Icons.keyboard_arrow_down,
-                color: Color(0xFF94A3B8)),
-            dropdownColor: isDark
-                ? const Color(0xFF1E293B)
-                : const Color(0xFFF7F6F8),
-            style: TextStyle(
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
-              fontSize: 16,
-            ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: isDark
-                  ? const Color(0xFF1E293B).withValues(alpha: 0.5)
-                  : const Color(0xFFF7F6F8),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 14),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                    color: primary.withValues(alpha: 0.2)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: primary, width: 2),
-              ),
-            ),
-            items: const [
-              DropdownMenuItem(
-                  value: LoginMethod.emailPassword,
-                  child: Text('Email-Password')),
-              DropdownMenuItem(
-                  value: LoginMethod.sso, child: Text('SSO')),
-            ],
-            onChanged: (v) {
-              setState(() {
-                _loginMethod = v ?? LoginMethod.emailPassword;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-
-          if (_loginMethod == LoginMethod.emailPassword) ...[
-            InputField(
-                controller: _emailCtrl,
-                label: 'Email',
-                hint: 'Enter registered email'),
-            const SizedBox(height: 16),
-            InputField(
-                controller: _usernameCtrl,
-                label: 'Username',
-                hint: 'Enter username (optional)'),
-            const SizedBox(height: 16),
-            InputField(
-                controller: _passwordCtrl,
-                label: 'Password',
-                hint: 'Enter your password',
-                isPassword: true),
-            const SizedBox(height: 16),
-          ],
-
-          if (_loginMethod == LoginMethod.sso) ...[
-            Container(
-              padding: const EdgeInsets.only(top: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Select SSO Provider',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: accentOrange),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SsoProviderButton(
-                          selected:
-                              _selectedProvider == SsoProvider.google,
-                          icon: Icons.g_translate,
-                          label: 'GOOGLE',
-                          onTap: () => setState(
-                              () => _selectedProvider = SsoProvider.google),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SsoProviderButton(
-                          selected:
-                              _selectedProvider == SsoProvider.github,
-                          icon: Icons.code,
-                          label: 'GITHUB',
-                          onTap: () => setState(
-                              () => _selectedProvider = SsoProvider.github),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SsoProviderButton(
-                          selected:
-                              _selectedProvider == SsoProvider.facebook,
-                          icon: Icons.group,
-                          label: 'FACEBOOK',
-                          onTap: () => setState(() =>
-                              _selectedProvider = SsoProvider.facebook),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ],
-
-          // Tag selector
-          const Text(
-            'Tag',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF94A3B8),
-            ),
-          ),
-          const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            initialValue: _tags.contains(_selectedTag) ? _selectedTag : null,
-            hint: const Text('Select a tag',
-                style: TextStyle(color: Color(0xFF64748B))),
-            icon: const Icon(Icons.keyboard_arrow_down,
-                color: Color(0xFF94A3B8)),
-            dropdownColor: isDark
-                ? const Color(0xFF1E293B)
-                : const Color(0xFFF7F6F8),
-            style: TextStyle(
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
-              fontSize: 16,
-            ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: isDark
-                  ? const Color(0xFF1E293B).withValues(alpha: 0.5)
-                  : const Color(0xFFF7F6F8),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 14),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                    color: primary.withValues(alpha: 0.2)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: primary, width: 2),
-              ),
-            ),
-            items: _tags.map((t) {
-              return DropdownMenuItem(value: t, child: Text(t));
-            }).toList(),
-            onChanged: (v) => setState(() => _selectedTag = v),
-          ),
-          const SizedBox(height: 80),
-        ],
-      ),
-    );
-  }
-
-  IconData _getIconForTitle(String title) {
+  IconData _iconForTitle(String title) {
     switch (title.toLowerCase()) {
       case 'github':
-        return Icons.terminal;
+        return Icons.code_rounded;
       case 'gmail':
-        return Icons.mail;
+        return Icons.mail_outline_rounded;
       case 'adobe creative cloud':
-        return Icons.palette;
+        return Icons.palette_outlined;
       default:
         return Icons.shield_outlined;
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+    final accent = theme.secondary;
+
+    return Scaffold(
+      backgroundColor: theme.background,
+      appBar: AppBar(
+        backgroundColor: theme.background,
+        leading: IconButton(
+          onPressed: () {
+            if (_isEditing) {
+              _cancelEditing();
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
+          icon: Icon(_isEditing ? Icons.close_rounded : Icons.arrow_back_rounded),
+        ),
+        title: Text(_isEditing ? 'Edit Credential' : _account.title),
+        actions: _isEditing
+            ? [
+                TextButton(
+                  onPressed: _cancelEditing,
+                  child: const Text('Cancel'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: ElevatedButton(
+                    onPressed: _isSaving ? null : _saveChanges,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Save'),
+                  ),
+                ),
+              ]
+            : [
+                IconButton(
+                  onPressed: () => setState(() => _isEditing = true),
+                  icon: Icon(Icons.edit_outlined, color: accent),
+                  tooltip: 'Edit',
+                ),
+                IconButton(
+                  onPressed: _deleteAccount,
+                  icon: Icon(Icons.delete_outline_rounded, color: theme.destructive),
+                  tooltip: 'Delete',
+                ),
+              ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: theme.border),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DetailHeroCard(
+              accent: accent,
+              icon: _iconForTitle(_account.title),
+              eyebrow: _isEditing ? 'Credential editor' : 'Credential',
+              title: _account.title,
+              subtitle: _isEditing
+                  ? 'Update login details, provider, and tag without leaving the page.'
+                  : (_isSso
+                        ? 'SSO via ${_account.provider ?? 'provider'}'
+                        : _account.email ?? _account.username ?? _account.method),
+              chips: [
+                _HeroChip(label: _account.method.toUpperCase(), accent: accent),
+                if ((_account.tags ?? '').isNotEmpty)
+                  _HeroChip(label: _account.tags!, accent: accent),
+                _HeroChip(label: _formatDate(_account.createdAt), accent: accent),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (_isEditing) _buildEditForm(theme, accent) else _buildDetailView(theme, accent),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailView(ArchivumTheme theme, Color accent) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionCard(
+          title: 'Access details',
+          accent: accent,
+          child: Column(
+            children: [
+              if (!_isSso) ...[
+                _DetailItem(
+                  label: 'Email',
+                  value: _account.email ?? '-',
+                  copyable: (_account.email ?? '').isNotEmpty,
+                  onCopy: () => _copyToClipboard(_account.email ?? '', 'Email'),
+                ),
+                _SectionDivider(theme: theme),
+                _DetailItem(
+                  label: 'Username',
+                  value: _account.username ?? '-',
+                  copyable: (_account.username ?? '').isNotEmpty,
+                  onCopy: () =>
+                      _copyToClipboard(_account.username ?? '', 'Username'),
+                ),
+                _SectionDivider(theme: theme),
+                _DetailItem(
+                  label: 'Password',
+                  value: _account.password ?? '-',
+                  isSecret: true,
+                  copyable: (_account.password ?? '').isNotEmpty,
+                  onCopy: () =>
+                      _copyToClipboard(_account.password ?? '', 'Password'),
+                ),
+                _SectionDivider(theme: theme),
+              ],
+              _DetailItem(label: 'Method', value: _account.method),
+              if (_isSso && (_account.provider ?? '').isNotEmpty) ...[
+                _SectionDivider(theme: theme),
+                _DetailItem(label: 'Provider', value: _account.provider!),
+              ],
+              if ((_account.tags ?? '').isNotEmpty) ...[
+                _SectionDivider(theme: theme),
+                _DetailItem(label: 'Tag', value: _account.tags!),
+              ],
+              if (_account.createdAt != null) ...[
+                _SectionDivider(theme: theme),
+                _DetailItem(label: 'Created', value: _formatDate(_account.createdAt)),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        OutlinedButton.icon(
+          onPressed: _deleteAccount,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.destructive,
+            side: BorderSide(color: theme.destructive.withValues(alpha: 0.35)),
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            minimumSize: const Size(double.infinity, 0),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+          icon: const Icon(Icons.delete_outline_rounded),
+          label: const Text('Delete Credential'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditForm(ArchivumTheme theme, Color accent) {
+    return _SectionCard(
+      title: 'Edit fields',
+      accent: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _FieldLabel(label: 'Account title', accent: accent),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _titleCtrl,
+            decoration: const InputDecoration(hintText: 'GitHub, Netflix, Linear'),
+          ),
+          const SizedBox(height: 16),
+          _FieldLabel(label: 'Login method', accent: accent),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<LoginMethod>(
+            initialValue: _loginMethod,
+            decoration: const InputDecoration(),
+            items: const [
+              DropdownMenuItem(
+                value: LoginMethod.emailPassword,
+                child: Text('Email / password'),
+              ),
+              DropdownMenuItem(value: LoginMethod.sso, child: Text('SSO')),
+            ],
+            onChanged: (value) {
+              setState(() => _loginMethod = value ?? LoginMethod.emailPassword);
+            },
+          ),
+          const SizedBox(height: 16),
+          if (_loginMethod == LoginMethod.emailPassword) ...[
+            _FieldLabel(label: 'Email', accent: accent),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _emailCtrl,
+              decoration: const InputDecoration(hintText: 'name@example.com'),
+            ),
+            const SizedBox(height: 16),
+            _FieldLabel(label: 'Username', accent: accent),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _usernameCtrl,
+              decoration: const InputDecoration(hintText: 'Optional username'),
+            ),
+            const SizedBox(height: 16),
+            _FieldLabel(label: 'Password', accent: accent),
+            const SizedBox(height: 8),
+            _PasswordEditField(controller: _passwordCtrl),
+            const SizedBox(height: 16),
+          ],
+          if (_loginMethod == LoginMethod.sso) ...[
+            _FieldLabel(label: 'SSO provider', accent: accent),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final provider in SsoProvider.values)
+                  _ChoiceChip(
+                    label: provider.toString().split('.').last.toUpperCase(),
+                    selected: _selectedProvider == provider,
+                    accent: accent,
+                    onTap: () => setState(() => _selectedProvider = provider),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          _FieldLabel(label: 'Tag', accent: accent),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in _tags)
+                _ChoiceChip(
+                  label: tag,
+                  selected: _selectedTag == tag,
+                  accent: accent,
+                  onTap: () => setState(() {
+                    _selectedTag = _selectedTag == tag ? null : tag;
+                  }),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-// ── Helper widget for password reveal ──────────────────────
-class _ObscurableRow extends StatefulWidget {
-  final String label;
-  final String value;
-  final Color labelColor;
-  final Color valueColor;
-  final bool isPassword;
-  final bool copyable;
-  final VoidCallback? onCopy;
+class _DetailHeroCard extends StatelessWidget {
+  const _DetailHeroCard({
+    required this.accent,
+    required this.icon,
+    required this.eyebrow,
+    required this.title,
+    required this.subtitle,
+    required this.chips,
+  });
 
-  const _ObscurableRow({
+  final Color accent;
+  final IconData icon;
+  final String eyebrow;
+  final String title;
+  final String subtitle;
+  final List<Widget> chips;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.16),
+            accent.withValues(alpha: 0.07),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: accent.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: accent, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  eyebrow.toUpperCase(),
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.9,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: theme.foreground,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: theme.mutedForeground,
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
+                if (chips.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(spacing: 8, runSpacing: 8, children: chips),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.label, required this.accent});
+
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: accent,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.accent,
+    required this.child,
+  });
+
+  final String title;
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: theme.border),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _FieldLabel(label: title, accent: accent),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel({required this.label, required this.accent});
+
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            color: accent,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.9,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider({required this.theme});
+
+  final ArchivumTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Divider(height: 1, color: theme.border),
+    );
+  }
+}
+
+class _DetailItem extends StatefulWidget {
+  const _DetailItem({
     required this.label,
     required this.value,
-    required this.labelColor,
-    required this.valueColor,
-    this.isPassword = false,
+    this.isSecret = false,
     this.copyable = false,
     this.onCopy,
   });
 
+  final String label;
+  final String value;
+  final bool isSecret;
+  final bool copyable;
+  final VoidCallback? onCopy;
+
   @override
-  State<_ObscurableRow> createState() => _ObscurableRowState();
+  State<_DetailItem> createState() => _DetailItemState();
 }
 
-class _ObscurableRowState extends State<_ObscurableRow> {
-  bool _obscure = true;
+class _DetailItemState extends State<_DetailItem> {
+  bool _obscured = true;
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
     final displayValue =
-        widget.isPassword && _obscure ? '••••••••' : widget.value;
+        widget.isSecret && _obscured ? '........' : widget.value;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 90,
           child: Text(
             widget.label,
             style: TextStyle(
-                fontSize: 13,
-                color: widget.labelColor,
-                fontWeight: FontWeight.w500),
+              color: theme.mutedForeground,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -795,41 +738,104 @@ class _ObscurableRowState extends State<_ObscurableRow> {
           child: Text(
             displayValue,
             style: TextStyle(
+              color: theme.foreground,
               fontSize: 14,
-              color: widget.valueColor,
+              height: 1.45,
               fontWeight: FontWeight.w600,
-              fontFamily: widget.isPassword && _obscure ? null : 'monospace',
+              fontFamily: widget.isSecret && _obscured ? null : 'monospace',
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ),
-        if (widget.isPassword)
-          GestureDetector(
-            onTap: () => setState(() => _obscure = !_obscure),
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Icon(
-                _obscure
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-                size: 18,
-                color: widget.labelColor,
-              ),
+        if (widget.isSecret)
+          IconButton(
+            onPressed: () => setState(() => _obscured = !_obscured),
+            icon: Icon(
+              _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              color: theme.mutedForeground,
+              size: 18,
             ),
+            tooltip: _obscured ? 'Show' : 'Hide',
           ),
         if (widget.copyable && widget.onCopy != null)
-          GestureDetector(
-            onTap: widget.onCopy,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Icon(
-                Icons.copy_outlined,
-                size: 18,
-                color: widget.labelColor,
-              ),
-            ),
+          IconButton(
+            onPressed: widget.onCopy,
+            icon: Icon(Icons.copy_outlined, color: theme.mutedForeground, size: 18),
+            tooltip: 'Copy',
           ),
       ],
+    );
+  }
+}
+
+class _ChoiceChip extends StatelessWidget {
+  const _ChoiceChip({
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? accent.withValues(alpha: 0.14) : theme.muted,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? accent : theme.border,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? accent : theme.mutedForeground,
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PasswordEditField extends StatefulWidget {
+  const _PasswordEditField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  State<_PasswordEditField> createState() => _PasswordEditFieldState();
+}
+
+class _PasswordEditFieldState extends State<_PasswordEditField> {
+  bool _obscured = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: widget.controller,
+      obscureText: _obscured,
+      decoration: InputDecoration(
+        hintText: 'Enter password',
+        suffixIcon: IconButton(
+          onPressed: () => setState(() => _obscured = !_obscured),
+          icon: Icon(
+            _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -173,66 +173,79 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 12,
-                    children: [
-                      ..._tags.map((tag) {
-                        final isSelected = _selectedTag == tag;
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              _selectedTag = isSelected ? null : tag;
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isSelected ? clr.primary.withValues(alpha:0.1) : Colors.transparent,
-                              border: Border.all(
-                                color: isSelected ? clr.primary : (isDark ? Colors.grey[700]! : Colors.grey[300]!),
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.label,
-                                  size: 16,
-                                  color: isSelected ? clr.primary : (isDark ? Colors.grey[400] : Colors.grey[500]),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  tag,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                    color: isSelected ? clr.primary : (isDark ? Colors.grey[400] : Colors.grey[500]),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ..._tags.map((tag) {
+                          final isSelected = _selectedTag == tag;
+                          final inactiveColor = isDark
+                              ? const Color(0xFF1E293B).withValues(alpha: 0.6)
+                              : Colors.white.withValues(alpha: 0.8);
+                          final tagTextColor = isDark ? Colors.white70 : const Color(0xFF475569);
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () => setState(() => _selectedTag = isSelected ? null : tag),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? clr.primary.withValues(alpha: 0.15)
+                                      : inactiveColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? clr.primary
+                                        : clr.primary.withValues(alpha: 0.1),
+                                    width: isSelected ? 1.5 : 1,
                                   ),
                                 ),
-                              ],
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 180),
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isSelected
+                                            ? clr.primary
+                                            : (isDark ? Colors.white24 : const Color(0xFFCBD5E1)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      tag,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        color: isSelected ? clr.primary : tagTextColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        );
-                      }),
-                      InkWell(
-                        onTap: _showAddTagDialog,
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                          );
+                        }),
+                        GestureDetector(
+                          onTap: _showAddTagDialog,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: clr.primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: clr.primary.withValues(alpha: 0.2)),
                             ),
-                            shape: BoxShape.circle,
+                            child: Icon(Icons.add, size: 16, color: clr.primary),
                           ),
-                          child: Icon(Icons.add, size: 16, color: isDark ? clr.secondary : Colors.grey[500]),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 32),
                   TextField(
