@@ -39,7 +39,7 @@ class InsightPage extends ConsumerWidget {
           ),
         ),
         title: Text(
-          'Insights & Analytics',
+          'Analytics',
           style: TextStyle(
             color: primaryText,
             fontSize: 18,

@@ -2,6 +2,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/account.dart';
 import '../domain/account_repository.dart';
 
+const _credentialsTable = 'credentials';
+
 class SupabaseAccountRepository implements AccountRepository {
   final SupabaseClient client;
 
@@ -15,7 +17,7 @@ class SupabaseAccountRepository implements AccountRepository {
     }
     
     final response = await client
-        .from('accounts')
+        .from(_credentialsTable)
         .insert(payload)
         .select()
         .single();
@@ -26,7 +28,7 @@ class SupabaseAccountRepository implements AccountRepository {
 
   @override
   Future<List<Account>> listAccounts({String? userId}) async {
-    var query = client.from('accounts').select();
+    var query = client.from(_credentialsTable).select();
     if (userId != null) {
       query = query.eq('user_id', userId);
     }
@@ -40,7 +42,7 @@ class SupabaseAccountRepository implements AccountRepository {
       ..remove('id')
       ..remove('user_id');
     final response = await client
-        .from('accounts')
+        .from(_credentialsTable)
         .update(payload)
         .eq('id', account.id!)
         .select()
@@ -52,7 +54,7 @@ class SupabaseAccountRepository implements AccountRepository {
 
   @override
   Future<void> deleteAccount(String id) async {
-    await client.from('accounts').delete().eq('id', id);
+    await client.from(_credentialsTable).delete().eq('id', id);
     await client.from('activity_logs').insert({'activity_type': 'credential_deleted'});
   }
 

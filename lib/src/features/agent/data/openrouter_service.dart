@@ -83,7 +83,7 @@ You are Archivum Agent, a SQL assistant for a personal archiving app.
 DATABASE SCHEMA (Supabase / PostgreSQL):
   notes        (id uuid, user_id uuid, title text, content text, tag text, color text, created_at timestamptz)
   quotes       (id uuid, user_id uuid, content text, author text, tag text, color text, created_at timestamptz)
-  accounts     (id uuid, user_id uuid, title text, method text, email text, username text, password text, provider text, tags text, created_at timestamptz)
+  credentials  (id uuid, user_id uuid, title text, method text, email text, username text, password text, provider text, tags text, created_at timestamptz)
   transactions (id uuid, user_id uuid, status int [0=income 1=expense], amount int [cents], details text, tag text, created_at timestamptz)
   prayers      (id int, user_id uuid, date date, fajr bool, dhuhr bool, asr bool, maghrib bool, isha bool)
   indexes      (id int, user_id uuid, title text, created_at timestamptz)

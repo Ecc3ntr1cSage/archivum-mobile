@@ -355,21 +355,24 @@ class _AlmanacTabs extends StatelessWidget {
     final theme = context.archivumTheme;
 
     return Container(
-      height: 48,
+      height: 58,
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: theme.muted,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: theme.border),
       ),
       child: TabBar(
         controller: controller,
         dividerColor: Colors.transparent,
-        indicatorPadding: const EdgeInsets.all(4),
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicatorPadding: EdgeInsets.zero,
         indicator: BoxDecoration(
           color: theme.card,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: theme.border),
         ),
+        labelPadding: EdgeInsets.zero,
         labelColor: theme.primary,
         unselectedLabelColor: theme.mutedForeground,
         labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),

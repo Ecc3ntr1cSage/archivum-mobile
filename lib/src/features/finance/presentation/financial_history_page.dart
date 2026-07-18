@@ -122,20 +122,45 @@ class _FinancialHistoryPageState extends State<FinancialHistoryPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SegmentedButton<TransactionType>(
-                      segments: const [
-                        ButtonSegment(
-                          value: TransactionType.expense,
-                          label: Text('Expense'),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(ctx).brightness == Brightness.dark
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Theme.of(ctx).brightness == Brightness.dark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFE2E8F0),
                         ),
-                        ButtonSegment(
-                          value: TransactionType.income,
-                          label: Text('Income'),
+                      ),
+                      child: SegmentedButton<TransactionType>(
+                        expandedInsets: EdgeInsets.zero,
+                        style: ButtonStyle(
+                          padding: WidgetStateProperty.all(
+                            const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          shape: WidgetStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
-                      ],
-                      selected: {selectedType},
-                      onSelectionChanged: (s) =>
-                          setDialogState(() => selectedType = s.first),
+                        segments: const [
+                          ButtonSegment(
+                            value: TransactionType.expense,
+                            label: Text('Expense'),
+                          ),
+                          ButtonSegment(
+                            value: TransactionType.income,
+                            label: Text('Income'),
+                          ),
+                        ],
+                        selected: {selectedType},
+                        onSelectionChanged: (s) =>
+                            setDialogState(() => selectedType = s.first),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextField(

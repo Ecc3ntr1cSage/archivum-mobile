@@ -379,20 +379,24 @@ class _FinanceTabs extends StatelessWidget {
       color: theme.background,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       child: Container(
+        height: 58,
+        padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
           color: theme.muted,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: theme.border),
         ),
         child: TabBar(
           controller: controller,
+          indicatorSize: TabBarIndicatorSize.tab,
           indicator: BoxDecoration(
             color: activeAccent.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: activeAccent.withValues(alpha: 0.35)),
           ),
-          indicatorPadding: const EdgeInsets.all(4),
+          indicatorPadding: EdgeInsets.zero,
           dividerColor: Colors.transparent,
+          labelPadding: EdgeInsets.zero,
           labelColor: activeAccent,
           unselectedLabelColor: theme.mutedForeground,
           labelStyle: const TextStyle(
