@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_controller.dart';
 
 import '../../auth/domain/auth_state_provider.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../agent/presentation/chat_page.dart';
 import '../../accounts/presentation/add_credential_page.dart';
 import '../../indexes/presentation/add_index_page.dart';
@@ -152,6 +153,22 @@ class _TopBar extends ConsumerWidget {
             onTap: () =>
                 ref.read(themeControllerProvider.notifier).toggle(isDark),
           ),
+          const SizedBox(width: 8),
+          _NavIconBtn(
+            icon: Icons.logout_rounded,
+            tooltip: 'Sign out',
+            onTap: () async {
+              try {
+                await ref.read(authRepositoryProvider).signOut();
+              } catch (error) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Could not sign out: $error')),
+                  );
+                }
+              }
+            },
+          ),
         ],
       ),
     );
@@ -210,29 +227,34 @@ class _Avatar extends StatelessWidget {
 
 // ─── Small nav icon button ────────────────────────────────────────────────────
 class _NavIconBtn extends StatelessWidget {
-  const _NavIconBtn({required this.icon, required this.onTap});
+  const _NavIconBtn({required this.icon, required this.onTap, this.tooltip});
 
   final IconData icon;
   final VoidCallback onTap;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.archivumTheme;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: theme.card,
-          shape: BoxShape.circle,
-          border: Border.all(color: theme.border),
-        ),
-        child: Icon(
-          icon,
-          color: theme.foreground.withValues(alpha: 0.72),
-          size: 18,
+    return Tooltip(
+      message: tooltip ?? '',
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: theme.card,
+            shape: BoxShape.circle,
+            border: Border.all(color: theme.border),
+          ),
+          child: Icon(
+            icon,
+            color: theme.foreground.withValues(alpha: 0.72),
+            size: 18,
+          ),
         ),
       ),
     );

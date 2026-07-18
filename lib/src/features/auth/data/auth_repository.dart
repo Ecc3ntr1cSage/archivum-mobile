@@ -18,10 +18,11 @@ class AuthRepository {
     await client.auth.signUp(email: email, password: password);
   }
 
+  Future<void> signOut() async {
+    await client.auth.signOut();
+  }
+
   Future<void> signInWithGoogle() async {
-    await client.auth.signInWithOAuth(
-      OAuthProvider.google,
-    );
+    await client.auth.signInWithOAuth(OAuthProvider.google);
   }
 }
-
