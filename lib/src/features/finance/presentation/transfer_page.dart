@@ -106,8 +106,11 @@ class _TransferPageState extends State<TransferPage> {
   Widget build(BuildContext context) {
     final theme = context.archivumTheme;
     return Scaffold(
-      backgroundColor: theme.background,
+      backgroundColor: _TransferColors.background,
       appBar: AppBar(
+        backgroundColor: _TransferColors.background,
+        foregroundColor: _TransferColors.foreground,
+        surfaceTintColor: Colors.transparent,
         title: const Text('Transfer'),
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
@@ -123,7 +126,7 @@ class _TransferPageState extends State<TransferPage> {
                 padding: const EdgeInsets.all(24),
                 child: Text(
                   'Create at least two finance accounts before transferring.',
-                  style: TextStyle(color: theme.mutedForeground),
+                  style: const TextStyle(color: _TransferColors.muted),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -133,12 +136,16 @@ class _TransferPageState extends State<TransferPage> {
               children: [
                 Text(
                   'All accounts',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: const TextStyle(
+                    color: _TransferColors.foreground,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Choose where money moves from and where it lands.',
-                  style: TextStyle(color: theme.mutedForeground),
+                  style: const TextStyle(color: _TransferColors.muted),
                 ),
                 const SizedBox(height: 16),
                 _AccountSelector(
@@ -172,12 +179,12 @@ class _TransferPageState extends State<TransferPage> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(labelText: 'Amount'),
+                  decoration: _transferInputDecoration('Amount'),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _details,
-                  decoration: const InputDecoration(labelText: 'Details'),
+                  decoration: _transferInputDecoration('Details'),
                 ),
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
@@ -194,6 +201,7 @@ class _TransferPageState extends State<TransferPage> {
                   onPressed: _isSaving ? null : _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _accent,
+                    foregroundColor: Colors.white,
                     minimumSize: const Size.fromHeight(48),
                   ),
                   icon: const Icon(Icons.swap_horiz_rounded),
@@ -222,71 +230,59 @@ class _AccountSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: _TransferColors.muted,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
+          ),
+        ),
         const SizedBox(height: 8),
-        for (final account in accounts)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: InkWell(
-              onTap: () => onChanged(account),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: selected?.id == account.id
-                      ? accent.withValues(alpha: 0.14)
-                      : theme.card,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: selected?.id == account.id ? accent : theme.border,
+        DropdownButtonFormField<FinancialAccount>(
+          initialValue: accounts.contains(selected) ? selected : null,
+          isExpanded: true,
+          menuMaxHeight: 320,
+          dropdownColor: _TransferColors.surfaceHigh,
+          icon: Icon(Icons.unfold_more_rounded, color: accent),
+          decoration: _transferInputDecoration('Select account'),
+          items: accounts
+              .map(
+                (account) => DropdownMenuItem(
+                  value: account,
+                  child: Row(
+                    children: [
+                      Icon(_iconFor(account.type), color: accent, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          account.institution?.isNotEmpty ?? false
+                              ? '${account.name} · ${account.institution}'
+                              : account.name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${account.currency} ${account.currentBalance.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: _TransferColors.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _iconFor(account.type),
-                      color: selected?.id == account.id
-                          ? accent
-                          : theme.mutedForeground,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            account.name,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          if (account.institution?.isNotEmpty ?? false)
-                            Text(
-                              account.institution!,
-                              style: TextStyle(
-                                color: theme.mutedForeground,
-                                fontSize: 12,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      '${account.currency} ${account.currentBalance.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: selected?.id == account.id
-                            ? accent
-                            : theme.foreground,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+              )
+              .toList(),
+          onChanged: (value) {
+            if (value != null) onChanged(value);
+          },
+        ),
       ],
     );
   }
@@ -294,7 +290,40 @@ class _AccountSelector extends StatelessWidget {
   IconData _iconFor(String type) => switch (type) {
     'bank' => Icons.account_balance_outlined,
     'cash' => Icons.payments_outlined,
+    'credit' => Icons.credit_card_outlined,
     'trading' => Icons.show_chart_rounded,
     _ => Icons.account_balance_wallet_outlined,
   };
+}
+
+class _TransferColors {
+  static const background = Color(0xFF0B101B);
+  static const surface = Color(0xFF121A2A);
+  static const surfaceHigh = Color(0xFF1A263B);
+  static const foreground = Color(0xFFE8EEF8);
+  static const muted = Color(0xFF8E9AAF);
+  static const outline = Color(0xFF2B3A54);
+}
+
+InputDecoration _transferInputDecoration(String label) {
+  return InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: _TransferColors.surface.withValues(alpha: 0.9),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: _TransferColors.outline),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: _TransferColors.outline),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(
+        color: _TransferPageState._accent,
+        width: 1.5,
+      ),
+    ),
+  );
 }

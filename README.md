@@ -134,7 +134,9 @@ while still writing through their feature repositories.
 - Keep user data isolated by the authenticated user in both client queries and Supabase RLS policies.
 - Financial amounts are persisted as integer cents; convert only at the UI boundary.
 - Finance uses `accounts` for financial accounts and `credentials` for saved login/account credentials.
+- Finance accounts support an optional info note and a credit-card account type.
 - Finance tag breakdowns are stored in `transaction_splits`; recurring expense rows are templates and are excluded from normal totals.
+- Income and expense classifiers are selected from the full tag list. Split controls appear only after two or more tags are selected, with exact-value and percentage modes.
 - Finance budget allocation is managed from the account nodes view, while the
   main Finance tab focuses on entry and the recent timeline.
 - Prayer tracking uses a 05:00 local-time boundary for its active day.

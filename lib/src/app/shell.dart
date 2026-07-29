@@ -190,23 +190,41 @@ class _FloatingAddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surfaceColor = Color.lerp(
+      theme.sidebar,
+      const Color(0xFF2A273F),
+      0.76,
+    )!;
+    final borderColor = Color.lerp(theme.border, const Color(0xFF4A4564), 0.7)!;
+    final iconSurface = theme.primary.withValues(alpha: 0.14);
+    final labelColor = Color.lerp(
+      theme.popoverForeground,
+      const Color(0xFFE2DDF0),
+      0.35,
+    )!;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: item.onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          width: 208,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          width: 220,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
-            color: theme.popover,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: theme.border),
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
+                color: Colors.black.withValues(alpha: 0.22),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: theme.primary.withValues(alpha: 0.08),
+                blurRadius: 14,
+                spreadRadius: -6,
               ),
             ],
           ),
@@ -216,8 +234,11 @@ class _FloatingAddButton extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: theme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  color: iconSurface,
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(
+                    color: theme.primary.withValues(alpha: 0.16),
+                  ),
                 ),
                 child: Icon(item.icon, color: theme.primary, size: 18),
               ),
@@ -226,12 +247,17 @@ class _FloatingAddButton extends StatelessWidget {
                 child: Text(
                   item.label,
                   style: TextStyle(
-                    color: theme.popoverForeground,
+                    color: labelColor,
                     fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              Icon(
+                Icons.arrow_outward_rounded,
+                color: theme.mutedForeground.withValues(alpha: 0.72),
+                size: 16,
               ),
             ],
           ),

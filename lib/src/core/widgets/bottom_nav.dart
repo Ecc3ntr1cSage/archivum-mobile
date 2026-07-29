@@ -174,7 +174,21 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final buttonColor = Color.lerp(theme.secondary, theme.primary, 0.18)!;
+    final buttonColor = Color.lerp(
+      theme.sidebar,
+      const Color(0xFF2E2B43),
+      0.78,
+    )!;
+    final buttonBorder = Color.lerp(
+      theme.border,
+      const Color(0xFF5B5578),
+      isOpen ? 0.92 : 0.72,
+    )!;
+    final iconColor = Color.lerp(
+      theme.mutedForeground,
+      theme.primary,
+      isOpen ? 0.78 : 0.28,
+    )!;
 
     return Expanded(
       child: Center(
@@ -192,25 +206,25 @@ class _ActionButton extends StatelessWidget {
                 height: 46,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      buttonColor.withValues(alpha: 0.96),
-                      theme.secondary.withValues(alpha: 0.92),
-                    ],
-                  ),
+                  color: buttonColor,
                   border: Border.all(
-                    color: Color.lerp(theme.sidebar, Colors.black, 0.22)!,
-                    width: 4,
+                    color: buttonBorder,
+                    width: isOpen ? 1.5 : 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: theme.secondary.withValues(
-                        alpha: isOpen ? 0.42 : 0.26,
+                      color: Colors.black.withValues(
+                        alpha: isOpen ? 0.24 : 0.18,
                       ),
-                      blurRadius: isOpen ? 22 : 16,
+                      blurRadius: isOpen ? 20 : 14,
                       offset: const Offset(0, 8),
+                    ),
+                    BoxShadow(
+                      color: theme.primary.withValues(
+                        alpha: isOpen ? 0.18 : 0.08,
+                      ),
+                      blurRadius: isOpen ? 18 : 10,
+                      spreadRadius: -4,
                     ),
                   ],
                 ),
@@ -220,7 +234,7 @@ class _ActionButton extends StatelessWidget {
                   curve: Curves.easeOutCubic,
                   child: Icon(
                     isOpen ? Icons.close_rounded : Icons.add_rounded,
-                    color: theme.secondaryForeground,
+                    color: iconColor,
                     size: 24,
                   ),
                 ),

@@ -17,6 +17,7 @@ class _AccountNodesPageState extends State<AccountNodesPage> {
   late final TransactionRepository _repo;
   final _accountName = TextEditingController();
   final _institution = TextEditingController();
+  final _accountInfo = TextEditingController();
   final _openingBalance = TextEditingController();
 
   List<FinancialAccount> _accounts = [];
@@ -37,6 +38,7 @@ class _AccountNodesPageState extends State<AccountNodesPage> {
   void dispose() {
     _accountName.dispose();
     _institution.dispose();
+    _accountInfo.dispose();
     _openingBalance.dispose();
     super.dispose();
   }
@@ -75,6 +77,7 @@ class _AccountNodesPageState extends State<AccountNodesPage> {
   Future<void> _showAccountDialog() async {
     _accountName.clear();
     _institution.clear();
+    _accountInfo.clear();
     _openingBalance.clear();
     _accountType = 'ewallet';
     _currency = 'MYR';
@@ -104,6 +107,15 @@ class _AccountNodesPageState extends State<AccountNodesPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  TextField(
+                    controller: _accountInfo,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Info (optional)',
+                      hintText: 'Anything useful about this account',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: _accountType,
                     isExpanded: true,
@@ -115,6 +127,10 @@ class _AccountNodesPageState extends State<AccountNodesPage> {
                         child: Text('E-wallet'),
                       ),
                       DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                      DropdownMenuItem(
+                        value: 'credit',
+                        child: Text('Credit card'),
+                      ),
                       DropdownMenuItem(
                         value: 'trading',
                         child: Text('Trading'),
@@ -163,6 +179,7 @@ class _AccountNodesPageState extends State<AccountNodesPage> {
                     name: name,
                     type: _accountType,
                     institution: _institution.text.trim(),
+                    info: _accountInfo.text.trim(),
                     currency: _currency,
                     openingBalance:
                         double.tryParse(_openingBalance.text.trim()) ?? 0,
@@ -315,7 +332,7 @@ class _NodeColors {
   static const muted = Color(0xFFA098B0);
   static const outline = Color(0xFF302840);
   static const error = Color(0xFFFF4444);
-  static const grid = Color(0x22FFFFFF);
+  static const grid = Color(0x1BFFFFFF);
 }
 
 class _NodeBackdrop extends StatelessWidget {
@@ -733,6 +750,7 @@ class _NodePanel extends StatelessWidget {
 IconData _iconForAccount(String type) => switch (type) {
   'bank' => Icons.account_balance_outlined,
   'cash' => Icons.payments_outlined,
+  'credit' => Icons.credit_card_outlined,
   'trading' => Icons.show_chart_rounded,
   _ => Icons.account_balance_wallet_outlined,
 };

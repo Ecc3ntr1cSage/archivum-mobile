@@ -111,8 +111,9 @@ These tables and RPCs are referenced directly in the current codebase and should
   - Used by the Accounts feature
 
 - `accounts`
-  - Columns used: `id`, `user_id`, `name`, `type`, `institution`, `currency`, `opening_balance`, `created_at`
+  - Columns used: `id`, `user_id`, `name`, `type`, `institution`, `info`, `currency`, `opening_balance`, `created_at`
   - Used by the finance feature for bank, e-wallet, cash, and trading accounts
+  - `info` is optional free-form account context; supported account types include `credit` for credit cards
   - `current_balance` is derived in the app from `opening_balance` plus non-recurring transactions
 
 - `indexes`
@@ -181,7 +182,7 @@ These tables and RPCs are referenced directly in the current codebase and should
   - Store tag breakdowns in `transaction_splits`; percentage splits are UI input only and must be saved as exact cents.
   - Exclude `recurring = true` templates from posted ledger calculations.
 - Transfers should not affect income or expense totals; derive account impact from `transfer_side`.
-  - The income/expense split-mode picker is only shown after the user has selected two or more tags. A single tag receives the full transaction amount automatically.
+  - Classifier chips list all income or expense tags. A single selected tag receives the full transaction amount automatically; selecting two or more tags reveals the exact-value/percentage split controls with the selected tags already presented.
   - Transfers use `presentation/transfer_page.dart`, which consolidates all financial accounts for choosing the source and destination.
   - Budget allocation belongs on `presentation/account_nodes_page.dart`; keep
     the main finance page focused on transaction entry and its timeline below

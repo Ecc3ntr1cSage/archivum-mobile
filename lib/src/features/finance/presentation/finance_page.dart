@@ -36,6 +36,7 @@ class _FinancePageState extends State<FinancePage> {
   final _details = TextEditingController();
   final _accountName = TextEditingController();
   final _institution = TextEditingController();
+  final _accountInfo = TextEditingController();
   final _openingBalance = TextEditingController();
   final List<_SplitDraft> _splits = [_SplitDraft()];
 
@@ -75,6 +76,7 @@ class _FinancePageState extends State<FinancePage> {
     _details.dispose();
     _accountName.dispose();
     _institution.dispose();
+    _accountInfo.dispose();
     _openingBalance.dispose();
     for (final split in _splits) {
       split.dispose();
@@ -140,6 +142,17 @@ class _FinancePageState extends State<FinancePage> {
     );
   }
 
+  void _toggleTag(FinanceTag tag) {
+    final index = _splits.indexWhere((split) => split.tag?.id == tag.id);
+    if (index >= 0) {
+      _splits[index].dispose();
+      _splits.removeAt(index);
+      if (_splits.length < 2) _splitMode = _SplitMode.exact;
+    } else {
+      _splits.add(_SplitDraft()..tag = tag);
+    }
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -188,7 +201,7 @@ class _FinancePageState extends State<FinancePage> {
                 } else {
                   _expenseTags.add(tag);
                 }
-                _splits.first.tag = tag;
+                _toggleTag(tag);
               });
             },
             child: const Text('Add'),
@@ -202,6 +215,7 @@ class _FinancePageState extends State<FinancePage> {
   Future<void> _showAccountDialog() async {
     _accountName.clear();
     _institution.clear();
+    _accountInfo.clear();
     _openingBalance.clear();
     _accountType = 'ewallet';
     _currency = 'MYR';
@@ -231,6 +245,15 @@ class _FinancePageState extends State<FinancePage> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  TextField(
+                    controller: _accountInfo,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Info (optional)',
+                      hintText: 'Anything useful about this account',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: _accountType,
                     isExpanded: true,
@@ -242,6 +265,10 @@ class _FinancePageState extends State<FinancePage> {
                         child: Text('E-wallet'),
                       ),
                       DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                      DropdownMenuItem(
+                        value: 'credit',
+                        child: Text('Credit card'),
+                      ),
                       DropdownMenuItem(
                         value: 'trading',
                         child: Text('Trading'),
@@ -290,6 +317,7 @@ class _FinancePageState extends State<FinancePage> {
                     name: name,
                     type: _accountType,
                     institution: _institution.text.trim(),
+                    info: _accountInfo.text.trim(),
                     currency: _currency,
                     openingBalance:
                         double.tryParse(_openingBalance.text.trim()) ?? 0,
@@ -314,37 +342,49 @@ class _FinancePageState extends State<FinancePage> {
   List<TransactionSplit> _buildSplits(double amount) {
     final drafts = _splits.where((split) => split.tag != null).toList();
     if (drafts.isEmpty) throw AppError.validation('Select at least one tag.');
-    if (_splitMode == _SplitMode.exact || drafts.length == 1) {
-      if (drafts.length == 1 && drafts.first.amount.text.trim().isEmpty) {
-        return [
-          TransactionSplit(
-            tagId: drafts.first.tag!.id,
-            tagText: drafts.first.tag!.text,
-            amount: amount,
-          ),
-        ];
-      }
-      return drafts
-          .map(
-            (draft) => TransactionSplit(
-              tagId: draft.tag!.id,
-              tagText: draft.tag!.text,
-              amount: double.tryParse(draft.amount.text.trim()) ?? 0,
-            ),
-          )
-          .toList();
+    if (drafts.length == 1) {
+      return [
+        TransactionSplit(
+          tagId: drafts.first.tag!.id,
+          tagText: drafts.first.tag!.text,
+          amount: amount,
+        ),
+      ];
+    }
+    if (_splitMode == _SplitMode.exact) {
+      return drafts.map((draft) {
+        final value = double.tryParse(draft.amount.text.trim());
+        if (value == null || value <= 0) {
+          throw AppError.validation('Enter an amount for every selected tag.');
+        }
+        return TransactionSplit(
+          tagId: draft.tag!.id,
+          tagText: draft.tag!.text,
+          amount: value,
+        );
+      }).toList();
     }
 
     final amountCents = (amount * 100).round();
+    final percentages = drafts.map((draft) {
+      final value = double.tryParse(draft.percent.text.trim());
+      if (value == null || value <= 0 || value > 100) {
+        throw AppError.validation(
+          'Enter a percentage from 0 to 100 for every selected tag.',
+        );
+      }
+      return value;
+    }).toList();
+    if ((percentages.fold<double>(0, (sum, value) => sum + value) - 100).abs() >
+        0.01) {
+      throw AppError.validation('Percentages must add up to 100%.');
+    }
     var allocated = 0;
     return List.generate(drafts.length, (index) {
       final draft = drafts[index];
       final cents = index == drafts.length - 1
           ? amountCents - allocated
-          : (amountCents *
-                    (double.tryParse(draft.percent.text.trim()) ?? 0) /
-                    100)
-                .round();
+          : (amountCents * percentages[index] / 100).round();
       allocated += cents;
       return TransactionSplit(
         tagId: draft.tag!.id,
@@ -535,15 +575,10 @@ class _FinancePageState extends State<FinancePage> {
                               setState(() => _selectedAccount = account),
                           onDateTap: _pickDate,
                           onAddTag: () => _showAddTagDialog(_entryType),
-                          onAddSplit: () =>
-                              setState(() => _splits.add(_SplitDraft())),
-                          onRemoveSplit: (draft) => setState(() {
-                            draft.dispose();
-                            _splits.remove(draft);
-                          }),
+                          onTagSelected: (tag) =>
+                              setState(() => _toggleTag(tag)),
                           onSplitModeChanged: (mode) =>
                               setState(() => _splitMode = mode),
-                          onTagChanged: () => setState(() {}),
                           onSave: () => _saveTransaction(),
                           onSaveRecurring: _isIncome
                               ? null
@@ -587,7 +622,7 @@ class _FinanceColors {
   static const muted = Color(0xFFA098B0);
   static const outline = Color(0xFF302840);
   static const error = Color(0xFFFF4444);
-  static const grid = Color(0x22FFFFFF);
+  static const grid = Color(0x1BFFFFFF);
 }
 
 class _FinanceBackdrop extends StatelessWidget {
@@ -973,10 +1008,8 @@ class _EntryForm extends StatelessWidget {
     required this.onAccountChanged,
     required this.onDateTap,
     required this.onAddTag,
-    required this.onAddSplit,
-    required this.onRemoveSplit,
+    required this.onTagSelected,
     required this.onSplitModeChanged,
-    required this.onTagChanged,
     required this.onSave,
     this.onSaveRecurring,
   });
@@ -997,10 +1030,8 @@ class _EntryForm extends StatelessWidget {
   final ValueChanged<FinancialAccount?> onAccountChanged;
   final VoidCallback onDateTap;
   final VoidCallback onAddTag;
-  final VoidCallback onAddSplit;
-  final ValueChanged<_SplitDraft> onRemoveSplit;
+  final ValueChanged<FinanceTag> onTagSelected;
   final ValueChanged<_SplitMode> onSplitModeChanged;
-  final VoidCallback onTagChanged;
   final VoidCallback onSave;
   final VoidCallback? onSaveRecurring;
 
@@ -1099,10 +1130,8 @@ class _EntryForm extends StatelessWidget {
           splitMode: effectiveMode,
           canChooseSplitMode: hasMultipleTags,
           onAddTag: onAddTag,
-          onAddSplit: onAddSplit,
-          onRemoveSplit: onRemoveSplit,
+          onTagSelected: onTagSelected,
           onSplitModeChanged: onSplitModeChanged,
-          onTagChanged: onTagChanged,
         ),
         const SizedBox(height: 18),
         _CommitButton(
@@ -1310,10 +1339,8 @@ class _TagPanel extends StatelessWidget {
     required this.splitMode,
     required this.canChooseSplitMode,
     required this.onAddTag,
-    required this.onAddSplit,
-    required this.onRemoveSplit,
+    required this.onTagSelected,
     required this.onSplitModeChanged,
-    required this.onTagChanged,
   });
 
   final List<FinanceTag> tags;
@@ -1321,10 +1348,8 @@ class _TagPanel extends StatelessWidget {
   final _SplitMode splitMode;
   final bool canChooseSplitMode;
   final VoidCallback onAddTag;
-  final VoidCallback onAddSplit;
-  final ValueChanged<_SplitDraft> onRemoveSplit;
+  final ValueChanged<FinanceTag> onTagSelected;
   final ValueChanged<_SplitMode> onSplitModeChanged;
-  final VoidCallback onTagChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1347,10 +1372,10 @@ class _TagPanel extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: onAddSplit,
-                tooltip: 'Add split',
+                onPressed: onAddTag,
+                tooltip: 'Add classifier',
                 icon: const Icon(
-                  Icons.settings_input_component_rounded,
+                  Icons.add_rounded,
                   color: _FinanceColors.secondary,
                   size: 19,
                 ),
@@ -1358,36 +1383,40 @@ class _TagPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          for (final split in splits)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _SplitRow(
-                split: split,
-                tags: tags,
-                splitMode: splitMode,
-                canRemove: splits.length > 1,
-                onRemove: () => onRemoveSplit(split),
-                onTagChanged: onTagChanged,
-              ),
-            ),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _SmallAction(
-                icon: Icons.call_split_rounded,
-                label: 'Split',
-                onTap: onAddSplit,
-              ),
-              _SmallAction(
-                icon: Icons.add_rounded,
-                label: 'Attach tag',
-                onTap: onAddTag,
-              ),
+              for (final tag in tags)
+                _TagChoiceChip(
+                  tag: tag,
+                  selected: splits.any((split) => split.tag?.id == tag.id),
+                  onTap: () => onTagSelected(tag),
+                ),
             ],
           ),
+          if (tags.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('No classifiers yet. Add one to get started.'),
+            ),
           if (canChooseSplitMode) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
+            const Text(
+              'SUB-DIVISION',
+              style: TextStyle(
+                color: _FinanceColors.muted,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final split in splits)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _SplitValueRow(split: split, splitMode: splitMode),
+              ),
+            const SizedBox(height: 4),
             SegmentedButton<_SplitMode>(
               segments: const [
                 ButtonSegment(value: _SplitMode.exact, label: Text('Exact')),
@@ -1407,22 +1436,11 @@ class _TagPanel extends StatelessWidget {
   }
 }
 
-class _SplitRow extends StatelessWidget {
-  const _SplitRow({
-    required this.split,
-    required this.tags,
-    required this.splitMode,
-    required this.canRemove,
-    required this.onRemove,
-    required this.onTagChanged,
-  });
+class _SplitValueRow extends StatelessWidget {
+  const _SplitValueRow({required this.split, required this.splitMode});
 
   final _SplitDraft split;
-  final List<FinanceTag> tags;
   final _SplitMode splitMode;
-  final bool canRemove;
-  final VoidCallback onRemove;
-  final VoidCallback onTagChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1430,19 +1448,20 @@ class _SplitRow extends StatelessWidget {
       children: [
         Expanded(
           flex: 3,
-          child: DropdownButtonFormField<FinanceTag>(
-            initialValue: tags.contains(split.tag) ? split.tag : null,
-            decoration: _inputDecoration('Tag'),
-            dropdownColor: _FinanceColors.surfaceHigh,
-            items: tags
-                .map(
-                  (tag) => DropdownMenuItem(value: tag, child: Text(tag.text)),
-                )
-                .toList(),
-            onChanged: (value) {
-              split.tag = value;
-              onTagChanged();
-            },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+            decoration: BoxDecoration(
+              color: _FinanceColors.surfaceLow,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _FinanceColors.secondary.withValues(alpha: 0.45),
+              ),
+            ),
+            child: Text(
+              split.tag?.text ?? 'Selected tag',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -1458,55 +1477,50 @@ class _SplitRow extends StatelessWidget {
             ),
           ),
         ),
-        IconButton(
-          onPressed: canRemove ? onRemove : null,
-          tooltip: 'Remove split',
-          icon: const Icon(Icons.remove_circle_outline),
-        ),
       ],
     );
   }
 }
 
-class _SmallAction extends StatelessWidget {
-  const _SmallAction({
-    required this.icon,
-    required this.label,
+class _TagChoiceChip extends StatelessWidget {
+  const _TagChoiceChip({
+    required this.tag,
+    required this.selected,
     required this.onTap,
   });
 
-  final IconData icon;
-  final String label;
+  final FinanceTag tag;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
-          color: _FinanceColors.surfaceLow,
-          borderRadius: BorderRadius.circular(8),
+          color: selected
+              ? _FinanceColors.secondary.withValues(alpha: 0.14)
+              : _FinanceColors.surfaceLow,
+          borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: _FinanceColors.outline.withValues(alpha: 0.7),
+            color: selected
+                ? _FinanceColors.secondary
+                : _FinanceColors.outline.withValues(alpha: 0.86),
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: _FinanceColors.secondary, size: 14),
-            const SizedBox(width: 6),
-            Text(
-              label.toUpperCase(),
-              style: const TextStyle(
-                color: _FinanceColors.muted,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
+        child: Text(
+          tag.text,
+          style: TextStyle(
+            color: selected
+                ? _FinanceColors.secondary
+                : _FinanceColors.foreground,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -1873,6 +1887,7 @@ InputDecoration _inputDecoration(String label) {
 IconData _iconForAccount(String type) => switch (type) {
   'bank' => Icons.account_balance_outlined,
   'cash' => Icons.payments_outlined,
+  'credit' => Icons.credit_card_outlined,
   'trading' => Icons.show_chart_rounded,
   _ => Icons.account_balance_wallet_outlined,
 };

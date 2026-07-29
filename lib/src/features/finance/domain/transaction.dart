@@ -48,6 +48,7 @@ class FinancialAccount {
   final String name;
   final String type;
   final String? institution;
+  final String? info;
   final String currency;
   final double openingBalance;
   final double currentBalance;
@@ -59,6 +60,7 @@ class FinancialAccount {
     required this.name,
     required this.type,
     this.institution,
+    this.info,
     this.currency = 'MYR',
     this.openingBalance = 0,
     this.currentBalance = 0,
@@ -72,6 +74,7 @@ class FinancialAccount {
       name: name,
       type: type,
       institution: institution,
+      info: info,
       currency: currency,
       openingBalance: openingBalance,
       currentBalance: currentBalance ?? this.currentBalance,
@@ -87,6 +90,7 @@ class FinancialAccount {
       'type': type,
       if (institution != null && institution!.isNotEmpty)
         'institution': institution,
+      if (info != null && info!.isNotEmpty) 'info': info,
       'currency': currency,
       'opening_balance': (openingBalance * 100).round(),
     };
@@ -99,6 +103,7 @@ class FinancialAccount {
       name: json['name'] ?? '',
       type: json['type'] ?? 'cash',
       institution: json['institution'],
+      info: json['info'],
       currency: json['currency'] ?? 'MYR',
       openingBalance: ((json['opening_balance'] as num?) ?? 0) / 100,
       currentBalance: ((json['current_balance'] as num?) ?? 0) / 100,
