@@ -7,6 +7,19 @@ import '../data/transaction_repository.dart';
 import '../domain/transaction.dart';
 import 'financial_history_page.dart';
 
+enum _SplitMode { exact, percent }
+
+class _SplitDraft {
+  FinanceTag? tag;
+  final TextEditingController amount = TextEditingController();
+  final TextEditingController percent = TextEditingController();
+
+  void dispose() {
+    amount.dispose();
+    percent.dispose();
+  }
+}
+
 class FinancePage extends StatefulWidget {
   const FinancePage({super.key});
 
@@ -17,108 +30,221 @@ class FinancePage extends StatefulWidget {
 class _FinancePageState extends State<FinancePage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late final TransactionRepository _repo;
 
-  final TextEditingController _amount = TextEditingController();
-  final TextEditingController _details = TextEditingController();
+  final _amount = TextEditingController();
+  final _merchant = TextEditingController();
+  final _details = TextEditingController();
+  final _accountName = TextEditingController();
+  final _institution = TextEditingController();
+  final _openingBalance = TextEditingController();
 
   DateTime? _selectedDate;
-  String? _selectedTag;
+  FinancialAccount? _selectedAccount;
+  FinancialAccount? _destinationAccount;
+  String _accountType = 'ewallet';
+  String _currency = 'MYR';
+  _SplitMode _splitMode = _SplitMode.exact;
 
-  List<String> _incomeTags = [];
-  List<String> _expenseTags = [];
+  List<FinancialAccount> _accounts = [];
+  List<FinanceTag> _incomeTags = [];
+  List<FinanceTag> _expenseTags = [];
+  List<TransactionModel> _recurring = [];
+  List<Budget> _budgets = [];
+  final List<_SplitDraft> _splits = [_SplitDraft()];
+  bool _isLoading = true;
+  bool _isSaving = false;
 
-  static const Color _incomeAccent = Color(0xFF5F8787);
-  static const Color _expenseAccent = Color(0xFFD87943);
-
-  bool get _isIncomeTab => _tabController.index == 1;
+  static const _incomeAccent = Color(0xFF5F8787);
+  static const _expenseAccent = Color(0xFFD87943);
+  static const _transferAccent = Color(0xFF5277C3);
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _repo = TransactionRepository(Supabase.instance.client);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging) return;
-      setState(() {
-        _selectedTag = null;
-        _selectedDate = null;
-        _amount.clear();
-        _details.clear();
-      });
+      if (!_tabController.indexIsChanging) setState(_resetEntryFields);
     });
-    Future.microtask(_loadTags);
+    Future.microtask(_loadFinanceData);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _amount.dispose();
+    _merchant.dispose();
     _details.dispose();
+    _accountName.dispose();
+    _institution.dispose();
+    _openingBalance.dispose();
+    for (final split in _splits) {
+      split.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _loadTags() async {
-    if (!mounted) return;
+  Future<void> _loadFinanceData() async {
     try {
-      final repo = TransactionRepository(Supabase.instance.client);
-      final fetchedIncomeTags = await repo.getTags('income');
-      final fetchedExpenseTags = await repo.getTags('expense');
+      final accounts = await _repo.getAccounts();
+      final incomeTags = await _repo.getTags('income');
+      final expenseTags = await _repo.getTags('expense');
+      final recurring = await _repo.getTransactions(recurringOnly: true);
+      final budgets = await _repo.getBudgets();
       if (!mounted) return;
       setState(() {
-        if (fetchedIncomeTags.isNotEmpty) {
-          _incomeTags = fetchedIncomeTags;
-        }
-        if (fetchedExpenseTags.isNotEmpty) {
-          _expenseTags = fetchedExpenseTags;
-        }
+        _accounts = accounts;
+        _incomeTags = incomeTags;
+        _expenseTags = expenseTags;
+        _recurring = recurring;
+        _budgets = budgets;
+        _selectedAccount ??= accounts.isEmpty ? null : accounts.first;
+        _isLoading = false;
       });
-    } catch (_) {
-      // Keep the UI usable even if tag loading fails.
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showError('Failed to load finance data: $error');
     }
   }
 
+  void _resetEntryFields() {
+    _amount.clear();
+    _merchant.clear();
+    _details.clear();
+    _selectedDate = null;
+    _destinationAccount = null;
+    for (final split in _splits) {
+      split.dispose();
+    }
+    _splits
+      ..clear()
+      ..add(_SplitDraft());
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: context.archivumTheme.destructive,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _pickDate(Color accent) async {
-    final theme = Theme.of(context);
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: theme.copyWith(
-            colorScheme: theme.colorScheme.copyWith(primary: accent),
-          ),
-          child: child!,
-        );
-      },
     );
-
-    if (picked != null && mounted) {
-      setState(() => _selectedDate = picked);
-    }
+    if (picked != null && mounted) setState(() => _selectedDate = picked);
   }
 
-  Future<void> _showAddTagDialog(bool isIncome) async {
-    final theme = context.archivumTheme;
-    final accent = isIncome ? _incomeAccent : _expenseAccent;
+  Future<void> _showAddTagDialog(TransactionType type) async {
     final controller = TextEditingController();
-    final messenger = ScaffoldMessenger.of(context);
+    final accent = type == TransactionType.income ? _incomeAccent : _expenseAccent;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add tag'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(hintText: 'Tag name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: accent),
+            onPressed: () async {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+              final tag = await _repo.addTag(
+                text,
+                type == TransactionType.income ? 'income' : 'expense',
+              );
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              setState(() {
+                if (type == TransactionType.income) {
+                  _incomeTags.add(tag);
+                } else {
+                  _expenseTags.add(tag);
+                }
+                _splits.first.tag = tag;
+              });
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+  }
+
+  Future<void> _showAccountDialog() async {
+    _accountName.clear();
+    _institution.clear();
+    _openingBalance.clear();
+    _accountType = 'ewallet';
+    _currency = 'MYR';
 
     await showDialog<void>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: theme.popover,
-          title: Text(
-            'Add new tag',
-            style: TextStyle(color: theme.popoverForeground),
-          ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            textCapitalization: TextCapitalization.words,
-            style: TextStyle(color: theme.foreground),
-            decoration: const InputDecoration(hintText: 'Enter tag name'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create account'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _accountName,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                ),
+                TextField(
+                  controller: _institution,
+                  decoration: const InputDecoration(
+                    labelText: 'Institution',
+                    hintText: 'MAE, TNG, MT4',
+                  ),
+                ),
+                DropdownButtonFormField<String>(
+                  initialValue: _accountType,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  items: const [
+                    DropdownMenuItem(value: 'bank', child: Text('Bank')),
+                    DropdownMenuItem(value: 'ewallet', child: Text('E-wallet')),
+                    DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                    DropdownMenuItem(value: 'trading', child: Text('Trading')),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => _accountType = value ?? 'ewallet'),
+                ),
+                DropdownButtonFormField<String>(
+                  initialValue: _currency,
+                  decoration: const InputDecoration(labelText: 'Currency'),
+                  items: const [
+                    DropdownMenuItem(value: 'MYR', child: Text('MYR')),
+                    DropdownMenuItem(value: 'USD', child: Text('USD')),
+                  ],
+                  onChanged: (value) =>
+                      setDialogState(() => _currency = value ?? 'MYR'),
+                ),
+                TextField(
+                  controller: _openingBalance,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Opening balance'),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -126,794 +252,791 @@ class _FinancePageState extends State<FinancePage>
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accent,
-                foregroundColor: Colors.white,
-              ),
               onPressed: () async {
-                final tagText = controller.text.trim();
-                if (tagText.isEmpty) return;
-
-                try {
-                  final repo = TransactionRepository(Supabase.instance.client);
-                  await repo.addTag(tagText, isIncome ? 'income' : 'expense');
-                  if (!context.mounted) return;
-
-                  Navigator.pop(context);
-                  if (!mounted) return;
-                  setState(() {
-                    if (isIncome) {
-                      if (!_incomeTags.contains(tagText)) {
-                        _incomeTags.add(tagText);
-                      }
-                    } else {
-                      if (!_expenseTags.contains(tagText)) {
-                        _expenseTags.add(tagText);
-                      }
-                    }
-                    _selectedTag = tagText;
-                  });
-
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Tag added successfully')),
-                  );
-                } catch (error) {
-                  if (!mounted) return;
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('Failed to add tag: $error')),
-                  );
-                }
+                final name = _accountName.text.trim();
+                if (name.isEmpty) return;
+                final account = await _repo.createAccount(
+                  FinancialAccount(
+                    name: name,
+                    type: _accountType,
+                    institution: _institution.text.trim(),
+                    currency: _currency,
+                    openingBalance:
+                        double.tryParse(_openingBalance.text.trim()) ?? 0,
+                  ),
+                );
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                setState(() {
+                  _accounts.insert(0, account);
+                  _selectedAccount = account;
+                });
+                await _loadFinanceData();
               },
-              child: const Text('Add'),
+              child: const Text('Create'),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
-
-    controller.dispose();
   }
 
-  Future<void> _save(bool isIncome) async {
-    final amountText = _amount.text.trim();
-    final details = _details.text.trim();
-    final tag = _selectedTag ?? 'Other';
-    final accent = isIncome ? _incomeAccent : _expenseAccent;
+  List<TransactionSplit> _buildSplits(double amount) {
+    final drafts = _splits.where((split) => split.tag != null).toList();
+    if (drafts.isEmpty) throw Exception('Select at least one tag');
 
-    if (amountText.isEmpty) return;
+    if (_splitMode == _SplitMode.exact) {
+      if (drafts.length == 1 && drafts.first.amount.text.trim().isEmpty) {
+        return [
+          TransactionSplit(
+            tagId: drafts.first.tag!.id,
+            tagText: drafts.first.tag!.text,
+            amount: amount,
+          ),
+        ];
+      }
+      return drafts
+          .map(
+            (draft) => TransactionSplit(
+              tagId: draft.tag!.id,
+              tagText: draft.tag!.text,
+              amount: double.tryParse(draft.amount.text.trim()) ?? 0,
+            ),
+          )
+          .toList();
+    }
 
-    final parsedAmount = double.tryParse(amountText);
-    if (parsedAmount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Invalid amount'),
-          backgroundColor: context.archivumTheme.destructive,
+    final amountCents = (amount * 100).round();
+    var allocated = 0;
+    final splits = <TransactionSplit>[];
+    for (var i = 0; i < drafts.length; i++) {
+      final draft = drafts[i];
+      final percent = double.tryParse(draft.percent.text.trim()) ?? 0;
+      final cents = i == drafts.length - 1
+          ? amountCents - allocated
+          : (amountCents * percent / 100).round();
+      allocated += cents;
+      splits.add(
+        TransactionSplit(
+          tagId: draft.tag!.id,
+          tagText: draft.tag!.text,
+          amount: cents / 100,
         ),
       );
+    }
+    return splits;
+  }
+
+  Future<void> _saveTransaction(
+    TransactionType type, {
+    bool recurring = false,
+  }) async {
+    final amount = double.tryParse(_amount.text.trim());
+    if (amount == null || amount <= 0) {
+      _showError('Enter a valid amount');
+      return;
+    }
+    if (_selectedAccount == null) {
+      _showError('Create or select an account first');
       return;
     }
 
+    setState(() => _isSaving = true);
     try {
-      final transaction = TransactionModel(
-        id: '',
-        type: isIncome ? TransactionType.income : TransactionType.expense,
-        amount: parsedAmount,
-        details: details,
-        tag: tag,
-        date: _selectedDate,
-        createdAt: DateTime.now(),
-      );
-
-      final repo = TransactionRepository(Supabase.instance.client);
-      await repo.createTransaction(transaction);
-
-      setState(() {
-        _amount.clear();
-        _details.clear();
-        _selectedTag = null;
-        _selectedDate = null;
-      });
-
+      if (type == TransactionType.transfer) {
+        if (_destinationAccount == null) {
+          throw Exception('Select a destination account');
+        }
+        await _repo.createTransfer(
+          fromAccountId: _selectedAccount!.id!,
+          toAccountId: _destinationAccount!.id!,
+          amount: amount,
+          details: _details.text.trim(),
+          date: _selectedDate,
+        );
+      } else {
+        await _repo.createTransaction(
+          TransactionModel(
+            id: '',
+            accountId: _selectedAccount!.id,
+            type: type,
+            amount: amount,
+            merchant: _merchant.text.trim().isEmpty
+                ? null
+                : _merchant.text.trim(),
+            details: _details.text.trim(),
+            date: _selectedDate,
+            recurring: recurring,
+            splits: _buildSplits(amount),
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+      if (!mounted) return;
+      setState(_resetEntryFields);
+      await _loadFinanceData();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '${isIncome ? 'Income' : 'Expense'} logged successfully',
-          ),
-          backgroundColor: accent,
+          content: Text(recurring ? 'Recurring expense saved' : 'Transaction saved'),
           behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $error'),
-          backgroundColor: context.archivumTheme.destructive,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (mounted) _showError(error.toString());
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _showRecurringDrawer() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            children: [
+              Text(
+                'Recurring expenses',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              if (_recurring.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text('No recurring expense templates yet.'),
+                ),
+              for (final template in _recurring)
+                ListTile(
+                  leading: const Icon(Icons.repeat_rounded),
+                  title: Text(template.merchant ?? template.details),
+                  subtitle: Text(template.tagLabel),
+                  trailing: Text(
+                    '${template.accountCurrency ?? 'MYR'} ${template.amount.toStringAsFixed(2)}',
+                  ),
+                  onTap: () async {
+                    await _repo.cloneRecurringTransaction(template);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    await _loadFinanceData();
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      const SnackBar(content: Text('Expense inserted')),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showBudgetDialog() async {
+    FinanceTag? tag = _expenseTags.isEmpty ? null : _expenseTags.first;
+    final limit = TextEditingController();
+    DateTime start = DateTime(DateTime.now().year, DateTime.now().month);
+    DateTime end = DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create budget'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<FinanceTag>(
+                initialValue: tag,
+                decoration: const InputDecoration(labelText: 'Expense tag'),
+                items: _expenseTags
+                    .map((tag) => DropdownMenuItem(value: tag, child: Text(tag.text)))
+                    .toList(),
+                onChanged: (value) => setDialogState(() => tag = value),
+              ),
+              TextField(
+                controller: limit,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Limit amount'),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${DateFormat('MMM d, yyyy').format(start)} - '
+                '${DateFormat('MMM d, yyyy').format(end)}',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final selectedTag = tag;
+                final amount = double.tryParse(limit.text.trim());
+                if (selectedTag == null || amount == null || amount <= 0) return;
+                await _repo.createBudget(
+                  Budget(
+                    tagId: selectedTag.id,
+                    tagText: selectedTag.text,
+                    limitAmount: amount,
+                    period: 'monthly',
+                    startDate: start,
+                    endDate: end,
+                  ),
+                );
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                await _loadFinanceData();
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+    limit.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.archivumTheme;
+    final activeAccent = switch (_tabController.index) {
+      1 => _incomeAccent,
+      2 => _transferAccent,
+      _ => _expenseAccent,
+    };
 
     return Scaffold(
       backgroundColor: theme.background,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            _FinanceHeader(
-              activeAccent: _isIncomeTab ? _incomeAccent : _expenseAccent,
-            ),
-            _FinanceTabs(
-              controller: _tabController,
-              activeAccent: _isIncomeTab ? _incomeAccent : _expenseAccent,
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
                 children: [
-                  _FinanceFormTab(
-                    key: const ValueKey('expense-tab'),
-                    title: 'Track an expense',
-                    subtitle: 'Capture outgoing money with category and date.',
-                    accent: _expenseAccent,
-                    icon: Icons.south_east_rounded,
-                    amountIcon: Icons.shopping_bag_outlined,
-                    actionLabel: 'Log Expense',
-                    detailsHint: 'Groceries, utilities, transport',
-                    selectedDate: _selectedDate,
-                    selectedTag: _selectedTag,
-                    amountController: _amount,
-                    detailsController: _details,
-                    tags: _expenseTags,
-                    onDateTap: () => _pickDate(_expenseAccent),
-                    onClearDate: () => setState(() => _selectedDate = null),
-                    onTagSelected: (tag) => setState(() => _selectedTag = tag),
-                    onAddTag: () => _showAddTagDialog(false),
-                    onSubmit: () => _save(false),
+                  _Header(
+                    accent: activeAccent,
+                    onAccountAdd: _showAccountDialog,
+                    onRecurringTap: _showRecurringDrawer,
+                    onHistoryTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FinancialHistoryPage(),
+                      ),
+                    ),
                   ),
-                  _FinanceFormTab(
-                    key: const ValueKey('income-tab'),
-                    title: 'Record income',
-                    subtitle: 'Keep earnings, side income, and payouts tidy.',
-                    accent: _incomeAccent,
-                    icon: Icons.north_west_rounded,
-                    amountIcon: Icons.payments_outlined,
-                    actionLabel: 'Log Income',
-                    detailsHint: 'Salary, freelance work, dividends',
-                    selectedDate: _selectedDate,
-                    selectedTag: _selectedTag,
-                    amountController: _amount,
-                    detailsController: _details,
-                    tags: _incomeTags,
-                    onDateTap: () => _pickDate(_incomeAccent),
-                    onClearDate: () => setState(() => _selectedDate = null),
-                    onTagSelected: (tag) => setState(() => _selectedTag = tag),
-                    onAddTag: () => _showAddTagDialog(true),
-                    onSubmit: () => _save(true),
+                  _AccountStrip(
+                    accounts: _accounts,
+                    selected: _selectedAccount,
+                    onChanged: (account) => setState(() {
+                      _selectedAccount = account;
+                      if (_destinationAccount?.id == account?.id) {
+                        _destinationAccount = null;
+                      }
+                    }),
+                  ),
+                  _TabSwitcher(controller: _tabController, accent: activeAccent),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _EntryForm(
+                          type: TransactionType.expense,
+                          accent: _expenseAccent,
+                          amount: _amount,
+                          merchant: _merchant,
+                          details: _details,
+                          date: _selectedDate,
+                          tags: _expenseTags,
+                          splitMode: _splitMode,
+                          splits: _splits,
+                          isSaving: _isSaving,
+                          onDateTap: () => _pickDate(_expenseAccent),
+                          onAddTag: () => _showAddTagDialog(TransactionType.expense),
+                          onAddSplit: () => setState(() => _splits.add(_SplitDraft())),
+                          onRemoveSplit: (draft) => setState(() {
+                            draft.dispose();
+                            _splits.remove(draft);
+                          }),
+                          onSplitModeChanged: (mode) =>
+                              setState(() => _splitMode = mode),
+                          onSave: () => _saveTransaction(TransactionType.expense),
+                          onSaveRecurring: () => _saveTransaction(
+                            TransactionType.expense,
+                            recurring: true,
+                          ),
+                        ),
+                        _EntryForm(
+                          type: TransactionType.income,
+                          accent: _incomeAccent,
+                          amount: _amount,
+                          merchant: _merchant,
+                          details: _details,
+                          date: _selectedDate,
+                          tags: _incomeTags,
+                          splitMode: _splitMode,
+                          splits: _splits,
+                          isSaving: _isSaving,
+                          onDateTap: () => _pickDate(_incomeAccent),
+                          onAddTag: () => _showAddTagDialog(TransactionType.income),
+                          onAddSplit: () => setState(() => _splits.add(_SplitDraft())),
+                          onRemoveSplit: (draft) => setState(() {
+                            draft.dispose();
+                            _splits.remove(draft);
+                          }),
+                          onSplitModeChanged: (mode) =>
+                              setState(() => _splitMode = mode),
+                          onSave: () => _saveTransaction(TransactionType.income),
+                        ),
+                        _TransferForm(
+                          accent: _transferAccent,
+                          amount: _amount,
+                          details: _details,
+                          date: _selectedDate,
+                          accounts: _accounts
+                              .where((account) => account.id != _selectedAccount?.id)
+                              .toList(),
+                          destination: _destinationAccount,
+                          isSaving: _isSaving,
+                          onDestinationChanged: (account) =>
+                              setState(() => _destinationAccount = account),
+                          onDateTap: () => _pickDate(_transferAccent),
+                          onSave: () => _saveTransaction(TransactionType.transfer),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _BudgetStrip(
+                    budgets: _budgets,
+                    onCreateBudget: _showBudgetDialog,
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.accent,
+    required this.onAccountAdd,
+    required this.onRecurringTap,
+    required this.onHistoryTap,
+  });
+
+  final Color accent;
+  final VoidCallback onAccountAdd;
+  final VoidCallback onRecurringTap;
+  final VoidCallback onHistoryTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.archivumTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(
+        children: [
+          Icon(Icons.account_balance_wallet_outlined, color: accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Finance',
+              style: TextStyle(
+                color: theme.foreground,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          IconButton(onPressed: onRecurringTap, icon: const Icon(Icons.repeat)),
+          IconButton(onPressed: onHistoryTap, icon: const Icon(Icons.history)),
+          IconButton(onPressed: onAccountAdd, icon: const Icon(Icons.add_card)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountStrip extends StatelessWidget {
+  const _AccountStrip({
+    required this.accounts,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<FinancialAccount> accounts;
+  final FinancialAccount? selected;
+  final ValueChanged<FinancialAccount?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (accounts.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('Create a finance account to start logging transactions.'),
+      );
+    }
+
+    return SizedBox(
+      height: 92,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (context, index) {
+          final account = accounts[index];
+          final isSelected = selected?.id == account.id;
+          return ChoiceChip(
+            selected: isSelected,
+            label: SizedBox(
+              width: 150,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(account.name, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${account.currency} ${account.currentBalance.toStringAsFixed(2)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+            onSelected: (_) => onChanged(account),
+          );
+        },
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemCount: accounts.length,
       ),
     );
   }
 }
 
-class _FinanceHeader extends StatelessWidget {
-  const _FinanceHeader({required this.activeAccent});
-
-  final Color activeAccent;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-      decoration: BoxDecoration(
-        color: theme.background,
-        border: Border(bottom: BorderSide(color: theme.border)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: activeAccent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              Icons.account_balance_wallet_outlined,
-              color: activeAccent,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Finance',
-                  style: TextStyle(
-                    color: theme.foreground,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'A calmer ledger for money in and out.',
-                  style: TextStyle(color: theme.mutedForeground, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FinanceTabs extends StatelessWidget {
-  const _FinanceTabs({required this.controller, required this.activeAccent});
+class _TabSwitcher extends StatelessWidget {
+  const _TabSwitcher({required this.controller, required this.accent});
 
   final TabController controller;
-  final Color activeAccent;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return Container(
-      color: theme.background,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      child: Container(
-        height: 58,
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: theme.muted,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: theme.border),
-        ),
-        child: TabBar(
-          controller: controller,
-          indicatorSize: TabBarIndicatorSize.tab,
-          indicator: BoxDecoration(
-            color: activeAccent.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: activeAccent.withValues(alpha: 0.35)),
-          ),
-          indicatorPadding: EdgeInsets.zero,
-          dividerColor: Colors.transparent,
-          labelPadding: EdgeInsets.zero,
-          labelColor: activeAccent,
-          unselectedLabelColor: theme.mutedForeground,
-          labelStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-          tabs: const [
-            Tab(text: 'Expenses'),
-            Tab(text: 'Income'),
-          ],
-        ),
-      ),
+    return TabBar(
+      controller: controller,
+      labelColor: accent,
+      tabs: const [
+        Tab(text: 'Expense'),
+        Tab(text: 'Income'),
+        Tab(text: 'Transfer'),
+      ],
     );
   }
 }
 
-class _FinanceFormTab extends StatelessWidget {
-  const _FinanceFormTab({
-    super.key,
-    required this.title,
-    required this.subtitle,
+class _EntryForm extends StatelessWidget {
+  const _EntryForm({
+    required this.type,
     required this.accent,
-    required this.icon,
-    required this.amountIcon,
-    required this.actionLabel,
-    required this.detailsHint,
-    required this.selectedDate,
-    required this.selectedTag,
-    required this.amountController,
-    required this.detailsController,
+    required this.amount,
+    required this.merchant,
+    required this.details,
+    required this.date,
     required this.tags,
+    required this.splitMode,
+    required this.splits,
+    required this.isSaving,
     required this.onDateTap,
-    required this.onClearDate,
-    required this.onTagSelected,
     required this.onAddTag,
-    required this.onSubmit,
+    required this.onAddSplit,
+    required this.onRemoveSplit,
+    required this.onSplitModeChanged,
+    required this.onSave,
+    this.onSaveRecurring,
   });
 
-  final String title;
-  final String subtitle;
+  final TransactionType type;
   final Color accent;
-  final IconData icon;
-  final IconData amountIcon;
-  final String actionLabel;
-  final String detailsHint;
-  final DateTime? selectedDate;
-  final String? selectedTag;
-  final TextEditingController amountController;
-  final TextEditingController detailsController;
-  final List<String> tags;
+  final TextEditingController amount;
+  final TextEditingController merchant;
+  final TextEditingController details;
+  final DateTime? date;
+  final List<FinanceTag> tags;
+  final _SplitMode splitMode;
+  final List<_SplitDraft> splits;
+  final bool isSaving;
   final VoidCallback onDateTap;
-  final VoidCallback onClearDate;
-  final ValueChanged<String> onTagSelected;
   final VoidCallback onAddTag;
-  final VoidCallback onSubmit;
+  final VoidCallback onAddSplit;
+  final ValueChanged<_SplitDraft> onRemoveSplit;
+  final ValueChanged<_SplitMode> onSplitModeChanged;
+  final VoidCallback onSave;
+  final VoidCallback? onSaveRecurring;
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
-      physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final isExpense = type == TransactionType.expense;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      children: [
+        TextField(
+          controller: amount,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Amount'),
+        ),
+        TextField(
+          controller: merchant,
+          decoration: InputDecoration(
+            labelText: isExpense ? 'Merchant' : 'Source',
+          ),
+        ),
+        TextField(
+          controller: details,
+          decoration: const InputDecoration(labelText: 'Details'),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: onDateTap,
+          icon: const Icon(Icons.calendar_today),
+          label: Text(
+            date == null ? 'Optional date' : DateFormat('MMM d, yyyy').format(date!),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SegmentedButton<_SplitMode>(
+          segments: const [
+            ButtonSegment(value: _SplitMode.exact, label: Text('Exact')),
+            ButtonSegment(value: _SplitMode.percent, label: Text('Percent')),
+          ],
+          selected: {splitMode},
+          onSelectionChanged: (selection) => onSplitModeChanged(selection.first),
+        ),
+        const SizedBox(height: 10),
+        for (final split in splits)
+          _SplitRow(
+            split: split,
+            tags: tags,
+            splitMode: splitMode,
+            canRemove: splits.length > 1,
+            onRemove: () => onRemoveSplit(split),
+          ),
+        Row(
           children: [
-          _HeroCard(accent: accent, icon: icon),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            style: TextStyle(
-              color: theme.foreground,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+            TextButton.icon(
+              onPressed: onAddSplit,
+              icon: const Icon(Icons.call_split),
+              label: const Text('Split'),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(color: theme.mutedForeground, fontSize: 13),
-          ),
-          const SizedBox(height: 20),
-          _FormSection(
-            accent: accent,
-            child: Column(
-              children: [
-                _SectionLabel(label: 'Amount', accent: accent),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: amountController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  style: TextStyle(
-                    color: theme.foreground,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: '0.00',
-                    prefixIcon: Icon(amountIcon, color: accent),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SectionLabel(label: 'Details', accent: accent),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: detailsController,
-                  style: TextStyle(color: theme.foreground, fontSize: 15),
-                  decoration: InputDecoration(
-                    hintText: detailsHint,
-                    prefixIcon: Icon(
-                      Icons.notes_rounded,
-                      color: theme.mutedForeground,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SectionLabel(label: 'Date', accent: accent),
-                const SizedBox(height: 8),
-                _PickerRow(
-                  icon: Icons.calendar_today_outlined,
-                  accent: accent,
-                  label: selectedDate == null
-                      ? 'Optional'
-                      : DateFormat('MMM d, yyyy').format(selectedDate!),
-                  muted: selectedDate == null,
-                  onTap: onDateTap,
-                  trailing: selectedDate == null
-                      ? Icon(
-                          Icons.chevron_right_rounded,
-                          color: theme.mutedForeground,
-                        )
-                      : IconButton(
-                          onPressed: onClearDate,
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: theme.mutedForeground,
-                          ),
-                        ),
-                ),
-                const SizedBox(height: 16),
-                _SectionLabel(label: 'Tag', accent: accent),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final tag in tags)
-                      _TagChip(
-                        label: tag,
-                        selected: selectedTag == tag,
-                        accent: accent,
-                        onTap: () => onTagSelected(tag),
-                      ),
-                    _AddTagChip(accent: accent, onTap: onAddTag),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: onSubmit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: accent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      actionLabel,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            TextButton.icon(
+              onPressed: onAddTag,
+              icon: const Icon(Icons.add),
+              label: const Text('Add tag'),
             ),
-          ),
-          const SizedBox(height: 14),
-          _HistoryCard(accent: accent),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.accent, required this.icon});
-
-  final Color accent;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            accent.withValues(alpha: 0.16),
-            accent.withValues(alpha: 0.08),
           ],
         ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: accent.withValues(alpha: 0.24)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: accent, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Money flow',
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Capture the amount, tag it, and keep the ledger clean.',
-                  style: TextStyle(
-                    color: theme.mutedForeground,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: isSaving ? null : onSave,
+          style: ElevatedButton.styleFrom(backgroundColor: accent),
+          child: Text(isSaving ? 'Saving...' : 'Save ${isExpense ? 'expense' : 'income'}'),
+        ),
+        if (onSaveRecurring != null) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: isSaving ? null : onSaveRecurring,
+            icon: const Icon(Icons.repeat),
+            label: const Text('Save as recurring shortcut'),
           ),
         ],
-      ),
+      ],
     );
   }
 }
 
-class _FormSection extends StatelessWidget {
-  const _FormSection({required this.child, required this.accent});
+class _SplitRow extends StatefulWidget {
+  const _SplitRow({
+    required this.split,
+    required this.tags,
+    required this.splitMode,
+    required this.canRemove,
+    required this.onRemove,
+  });
 
-  final Widget child;
-  final Color accent;
+  final _SplitDraft split;
+  final List<FinanceTag> tags;
+  final _SplitMode splitMode;
+  final bool canRemove;
+  final VoidCallback onRemove;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: theme.card,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: theme.border),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
+  State<_SplitRow> createState() => _SplitRowState();
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, required this.accent});
-
-  final String label;
-  final Color accent;
-
+class _SplitRowState extends State<_SplitRow> {
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<FinanceTag>(
+            initialValue: widget.tags.contains(widget.split.tag)
+                ? widget.split.tag
+                : null,
+            decoration: const InputDecoration(labelText: 'Tag'),
+            items: widget.tags
+                .map((tag) => DropdownMenuItem(value: tag, child: Text(tag.text)))
+                .toList(),
+            onChanged: (value) => setState(() => widget.split.tag = value),
+          ),
         ),
         const SizedBox(width: 8),
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            color: accent,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.9,
+        Expanded(
+          child: TextField(
+            controller: widget.splitMode == _SplitMode.exact
+                ? widget.split.amount
+                : widget.split.percent,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: widget.splitMode == _SplitMode.exact ? 'Amount' : '%',
+            ),
           ),
+        ),
+        IconButton(
+          onPressed: widget.canRemove ? widget.onRemove : null,
+          icon: const Icon(Icons.remove_circle_outline),
         ),
       ],
     );
   }
 }
 
-class _PickerRow extends StatelessWidget {
-  const _PickerRow({
-    required this.icon,
+class _TransferForm extends StatelessWidget {
+  const _TransferForm({
     required this.accent,
-    required this.label,
-    required this.muted,
-    required this.onTap,
-    required this.trailing,
+    required this.amount,
+    required this.details,
+    required this.date,
+    required this.accounts,
+    required this.destination,
+    required this.isSaving,
+    required this.onDestinationChanged,
+    required this.onDateTap,
+    required this.onSave,
   });
 
-  final IconData icon;
   final Color accent;
-  final String label;
-  final bool muted;
-  final VoidCallback onTap;
-  final Widget trailing;
+  final TextEditingController amount;
+  final TextEditingController details;
+  final DateTime? date;
+  final List<FinancialAccount> accounts;
+  final FinancialAccount? destination;
+  final bool isSaving;
+  final ValueChanged<FinancialAccount?> onDestinationChanged;
+  final VoidCallback onDateTap;
+  final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: theme.input.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.border),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      children: [
+        TextField(
+          controller: amount,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Amount'),
         ),
-        child: Row(
-          children: [
-            Icon(icon, color: accent, size: 18),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: muted ? theme.mutedForeground : theme.foreground,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            trailing,
-          ],
+        DropdownButtonFormField<FinancialAccount>(
+          initialValue: destination,
+          decoration: const InputDecoration(labelText: 'To account'),
+          items: accounts
+              .map(
+                (account) =>
+                    DropdownMenuItem(value: account, child: Text(account.name)),
+              )
+              .toList(),
+          onChanged: onDestinationChanged,
         ),
-      ),
-    );
-  }
-}
-
-class _TagChip extends StatelessWidget {
-  const _TagChip({
-    required this.label,
-    required this.selected,
-    required this.accent,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final Color accent;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? accent.withValues(alpha: 0.14) : theme.muted,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected ? accent : theme.border,
-            width: selected ? 1.4 : 1,
+        TextField(
+          controller: details,
+          decoration: const InputDecoration(labelText: 'Details'),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: onDateTap,
+          icon: const Icon(Icons.calendar_today),
+          label: Text(
+            date == null ? 'Optional date' : DateFormat('MMM d, yyyy').format(date!),
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? accent : theme.mutedForeground,
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: isSaving ? null : onSave,
+          style: ElevatedButton.styleFrom(backgroundColor: accent),
+          child: Text(isSaving ? 'Saving...' : 'Save transfer'),
+        ),
+      ],
+    );
+  }
+}
+
+class _BudgetStrip extends StatelessWidget {
+  const _BudgetStrip({required this.budgets, required this.onCreateBudget});
+
+  final List<Budget> budgets;
+  final VoidCallback onCreateBudget;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 94,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: onCreateBudget,
+            icon: const Icon(Icons.savings_outlined),
+            label: const Text('Budget'),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AddTagChip extends StatelessWidget {
-  const _AddTagChip({required this.accent, required this.onTap});
-
-  final Color accent;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: accent.withValues(alpha: 0.22)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.add_rounded, color: accent, size: 16),
-            const SizedBox(width: 6),
-            Text(
-              'Add tag',
-              style: TextStyle(
-                color: accent,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.accent});
-
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const FinancialHistoryPage()),
-        );
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.card,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: theme.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(Icons.history_rounded, color: accent, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Financial history',
-                    style: TextStyle(
-                      color: theme.foreground,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+          const SizedBox(width: 8),
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: budgets.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final budget = budgets[index];
+                final pct = budget.limitAmount <= 0
+                    ? 0.0
+                    : (budget.usedAmount / budget.limitAmount).clamp(0.0, 1.0);
+                return SizedBox(
+                  width: 170,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(budget.tagText, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 6),
+                          LinearProgressIndicator(value: pct),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${budget.usedAmount.toStringAsFixed(2)} / ${budget.limitAmount.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Review and edit previous entries.',
-                    style: TextStyle(
-                      color: theme.mutedForeground,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-            Icon(
-              Icons.arrow_forward_rounded,
-              color: theme.mutedForeground,
-              size: 18,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

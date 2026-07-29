@@ -12,7 +12,7 @@ The app uses Supabase for authentication and persistent data, Riverpod for appli
 - Indexes: checklist-style records with individual items and completion state.
 - Account and credential records.
 - Daily prayer completion tracking and history.
-- Personal income and expense tracking, financial history, and insights.
+- Personal finance with financial accounts, income/expense tracking, transfers, recurring expense shortcuts, budgets, financial history, and insights.
 - A home dashboard with recent activity and summaries.
 - Archivum Agent, which can answer natural-language questions using the signed-in user's archived data.
 - Light and dark themes.
@@ -128,6 +128,8 @@ Features are organized under `lib/src/features/`. Most keep data access in `data
 
 - Keep user data isolated by the authenticated user in both client queries and Supabase RLS policies.
 - Financial amounts are persisted as integer cents; convert only at the UI boundary.
+- Finance uses `accounts` for financial accounts and `credentials` for saved login/account credentials.
+- Finance tag breakdowns are stored in `transaction_splits`; recurring expense rows are templates and are excluded from normal totals.
 - Prayer tracking uses a 05:00 local-time boundary for its active day.
 - The Agent is intended to issue read-only database queries through the `run_agent_query` RPC.
 - The current widget test covers the standardized login screen. Expand it as auth and onboarding flows evolve.

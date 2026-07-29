@@ -108,6 +108,11 @@ These tables and RPCs are referenced directly in the current codebase and should
   - Columns used: `id`, `user_id`, `title`, `method`, `email`, `username`, `password`, `provider`, `tags`, `created_at`
   - Used by the Accounts feature
 
+- `accounts`
+  - Columns used: `id`, `user_id`, `name`, `type`, `institution`, `currency`, `opening_balance`, `created_at`
+  - Used by the finance feature for bank, e-wallet, cash, and trading accounts
+  - `current_balance` is derived in the app from `opening_balance` plus non-recurring transactions
+
 - `indexes`
   - Columns used: `id`, `user_id`, `title`, `created_at`
 
@@ -121,9 +126,22 @@ These tables and RPCs are referenced directly in the current codebase and should
   - One row represents a day of prayer completion flags
 
 - `transactions`
-  - Columns used: `id`, `user_id`, `status`, `amount`, `details`, `tag`, `date`, `created_at`
+  - Columns used: `id`, `user_id`, `account_id`, `status`, `amount`, `merchant`, `details`, `date`, `recurring`, `recurring_source_id`, `transfer_id`, `transfer_side`, `created_at`
   - Important: `amount` is stored as integer cents in the database and converted to `double` in the app
-  - Important: `status` maps enum index values where `0 = income` and `1 = expense`
+  - Important: `status` maps enum index values where `0 = income`, `1 = expense`, and `2 = transfer`
+  - Important: `recurring = true` marks an expense template and should be excluded from balances, normal history, budgets, and insights
+  - Transfers are linked by `transfer_id`; `transfer_side` is `out` or `in` because all amounts are stored positive
+
+- `transaction_splits`
+  - Columns used: `id`, `transaction_id`, `tag_id`, `amount`, `created_at`
+  - Stores purchase breakdowns by tag as exact integer cents
+  - Income and expense transactions should have one or more split rows, even when only one tag is used
+  - Budget and financial insight tag totals are calculated from these rows, not from a `transactions.tag` column
+
+- `budgets`
+  - Columns used: `id`, `user_id`, `tag_id`, `currency`, `limit_amount`, `period`, `start_date`, `end_date`, `is_active`, `created_at`
+  - Budget usage is derived from non-recurring expense split rows within the budget date range
+
 
 - `tags`
   - Columns used: `id`, `user_id`, `text`, `feature`, `created_at`
@@ -153,7 +171,10 @@ These tables and RPCs are referenced directly in the current codebase and should
 - Transactions:
   - Store money as integer cents in Supabase.
   - Convert to/from user-facing decimal amounts in Dart.
-  - Preserve the `status` enum contract: `income = 0`, `expense = 1`.
+  - Preserve the `status` enum contract: `income = 0`, `expense = 1`, `transfer = 2`.
+  - Store tag breakdowns in `transaction_splits`; percentage splits are UI input only and must be saved as exact cents.
+  - Exclude `recurring = true` templates from posted ledger calculations.
+  - Transfers should not affect income or expense totals; derive account impact from `transfer_side`.
 
 - Prayers:
   - The app uses a custom "active day" boundary at 05:00 local time.
