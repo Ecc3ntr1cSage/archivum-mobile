@@ -296,10 +296,6 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
                         icon: Icon(Icons.format_list_bulleted, color: isDark ? clr.secondary : Colors.grey[500]),
                         onPressed: () {},
                       ),
-                      IconButton(
-                        icon: Icon(Icons.palette_outlined, color: isDark ? clr.secondary : Colors.grey[500]),
-                        onPressed: () {},
-                      ),
                     ],
                   ),
                   ElevatedButton(

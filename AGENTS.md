@@ -45,8 +45,7 @@ This file is the source of truth for future Codex sessions working in this repos
   - `insights/`: analytics and derived summaries.
   - `notes/`: note CRUD.
   - `prayers/`: daily prayer tracking.
-  - `quotes/`: quote CRUD.
-  - `snippets/`: aggregated view over notes, quotes, and indexes.
+  - `snippets/`: aggregated view over notes, credentials, and indexes.
 
 - `assets/`
   Static assets, including app icon assets.
@@ -99,10 +98,7 @@ These tables and RPCs are referenced directly in the current codebase and should
 - `notes`
   - Columns used: `id`, `user_id`, `title`, `content`, `tag`, `color`, `created_at`
   - Behavior: ordered by `created_at DESC`
-
-- `quotes`
-  - Columns used: `id`, `user_id`, `content`, `author`, `tag`, `color`, `created_at`
-  - Behavior: ordered by `created_at DESC`
+  - UI note: the current notes UI does not expose a color picker; new notes are created without populating `color`
 
 - `credentials`
   - Columns used: `id`, `user_id`, `title`, `method`, `email`, `username`, `password`, `provider`, `tags`, `created_at`

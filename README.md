@@ -1,6 +1,6 @@
 # Archivum Mobile
 
-Archivum is a personal archive and daily-life companion built with Flutter. It brings notes, quotes, checklists, credentials, prayer tracking, personal finance, and AI-assisted search into one private, account-based app.
+Archivum is a personal archive and daily-life companion built with Flutter. It brings notes, checklists, credentials, prayer tracking, personal finance, and AI-assisted search into one private, account-based app.
 
 The app uses Supabase for authentication and persistent data, Riverpod for application state, and OpenRouter for the optional Archivum Agent experience.
 
@@ -8,7 +8,7 @@ The app uses Supabase for authentication and persistent data, Riverpod for appli
 
 - Email/password registration and sign-in.
 - Optional Google OAuth registration flow.
-- Notes and quotes with tags and color metadata.
+- Notes with tags.
 - Indexes: checklist-style records with individual items and completion state.
 - Account and credential records.
 - Daily prayer completion tracking and history.

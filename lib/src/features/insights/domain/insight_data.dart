@@ -16,7 +16,6 @@ class TagBreakdown {
 /// Holds all aggregated insight data returned from the RPC call.
 class InsightData {
   final int totalNotes;
-  final int totalQuotes;
   final int totalContent;
   final int totalIndexes;
   final int totalIndexItems;
@@ -28,14 +27,12 @@ class InsightData {
   final int totalAccounts;
   final int totalTags;
   final List<TagBreakdown> noteTags;
-  final List<TagBreakdown> quoteTags;
   final List<TagBreakdown> accountMethods;
   final List<TagBreakdown> ssoProviders;
   final List<TagBreakdown> tagFeatures;
 
   const InsightData({
     required this.totalNotes,
-    required this.totalQuotes,
     required this.totalContent,
     required this.totalIndexes,
     required this.totalIndexItems,
@@ -47,7 +44,6 @@ class InsightData {
     required this.totalAccounts,
     required this.totalTags,
     required this.noteTags,
-    required this.quoteTags,
     required this.accountMethods,
     required this.ssoProviders,
     required this.tagFeatures,
@@ -56,7 +52,6 @@ class InsightData {
   factory InsightData.fromJson(Map<String, dynamic> json) {
     return InsightData(
       totalNotes: (json['total_notes'] as num?)?.toInt() ?? 0,
-      totalQuotes: (json['total_quotes'] as num?)?.toInt() ?? 0,
       totalContent: (json['total_content'] as num?)?.toInt() ?? 0,
       totalIndexes: (json['total_indexes'] as num?)?.toInt() ?? 0,
       totalIndexItems: (json['total_index_items'] as num?)?.toInt() ?? 0,
@@ -68,7 +63,6 @@ class InsightData {
       totalAccounts: (json['total_accounts'] as num?)?.toInt() ?? 0,
       totalTags: (json['total_tags'] as num?)?.toInt() ?? 0,
       noteTags: _parseBreakdownList(json['note_tags']),
-      quoteTags: _parseBreakdownList(json['quote_tags']),
       accountMethods: _parseBreakdownList(json['account_methods']),
       ssoProviders: _parseBreakdownList(json['sso_providers']),
       tagFeatures: _parseBreakdownList(json['tag_features']),
