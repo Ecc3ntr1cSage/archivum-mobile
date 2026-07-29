@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/app_error.dart';
 
 import '../../finance/domain/transaction.dart';
 import '../domain/financial_insight_data.dart';
@@ -10,7 +11,9 @@ class FinancialInsightRepository {
 
   Future<FinancialInsightData> fetchFinancialInsights() async {
     final userId = client.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
+    if (userId == null) {
+      throw AppError.auth('You must be signed in to view insights.');
+    }
 
     final rows = await client
         .from('transactions')
@@ -54,11 +57,17 @@ class FinancialInsightRepository {
       if (status == TransactionType.income.index) {
         totalIncome += amount;
         incomeCount++;
-        monthly[monthKey] = (income: prev.income + amount, expense: prev.expense);
+        monthly[monthKey] = (
+          income: prev.income + amount,
+          expense: prev.expense,
+        );
       } else {
         totalExpense += amount;
         expenseCount++;
-        monthly[monthKey] = (income: prev.income, expense: prev.expense + amount);
+        monthly[monthKey] = (
+          income: prev.income,
+          expense: prev.expense + amount,
+        );
       }
     }
 
@@ -81,41 +90,43 @@ class FinancialInsightRepository {
       }
     }
 
-    final topExpenseTags = expenseByTag.entries
-        .map(
-          (entry) => TagBreakdown(
-            tag: entry.key,
-            amount: entry.value,
-            count: expenseCountByTag[entry.key] ?? 0,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
+    final topExpenseTags =
+        expenseByTag.entries
+            .map(
+              (entry) => TagBreakdown(
+                tag: entry.key,
+                amount: entry.value,
+                count: expenseCountByTag[entry.key] ?? 0,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.amount.compareTo(a.amount));
 
-    final topIncomeTags = incomeByTag.entries
-        .map(
-          (entry) => TagBreakdown(
-            tag: entry.key,
-            amount: entry.value,
-            count: incomeCountByTag[entry.key] ?? 0,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
+    final topIncomeTags =
+        incomeByTag.entries
+            .map(
+              (entry) => TagBreakdown(
+                tag: entry.key,
+                amount: entry.value,
+                count: incomeCountByTag[entry.key] ?? 0,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.amount.compareTo(a.amount));
 
-    final monthlyTrend = monthly.entries.map((entry) {
-      final parts = entry.key.split('-');
-      return MonthlyData(
-        year: int.parse(parts[0]),
-        month: int.parse(parts[1]),
-        income: entry.value.income,
-        expense: entry.value.expense,
-      );
-    }).toList()
-      ..sort((a, b) {
-        final cmpYear = a.year.compareTo(b.year);
-        return cmpYear != 0 ? cmpYear : a.month.compareTo(b.month);
-      });
+    final monthlyTrend =
+        monthly.entries.map((entry) {
+          final parts = entry.key.split('-');
+          return MonthlyData(
+            year: int.parse(parts[0]),
+            month: int.parse(parts[1]),
+            income: entry.value.income,
+            expense: entry.value.expense,
+          );
+        }).toList()..sort((a, b) {
+          final cmpYear = a.year.compareTo(b.year);
+          return cmpYear != 0 ? cmpYear : a.month.compareTo(b.month);
+        });
 
     return FinancialInsightData(
       totalBalance: totalIncome - totalExpense,

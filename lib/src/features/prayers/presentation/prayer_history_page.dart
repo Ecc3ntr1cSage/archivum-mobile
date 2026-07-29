@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/app_error.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/prayer_repository.dart';
@@ -71,11 +72,15 @@ class _PrayerHistoryPageState extends State<PrayerHistoryPage> {
       );
       if (!mounted) return;
       setState(() => _monthPrayers = monthPrayers);
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load history: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to load history: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }

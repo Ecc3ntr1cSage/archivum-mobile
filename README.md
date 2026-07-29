@@ -1,20 +1,25 @@
 # Archivum Mobile
 
-Archivum is a personal archive and daily-life companion built with Flutter. It brings notes, checklists, credentials, prayer tracking, personal finance, and AI-assisted search into one private, account-based app.
+Archivum is a personal archive and daily-life companion built with Flutter. It brings notes, checklists, credentials, prayer tracking, and personal finance into one private, account-based app.
 
-The app uses Supabase for authentication and persistent data, Riverpod for application state, and OpenRouter for the optional Archivum Agent experience.
+The app uses Supabase for authentication and persistent data and Riverpod for application state.
 
 ## Features
 
 - Email/password registration and sign-in.
 - Optional Google OAuth registration flow.
+- Almanac archive for notes, indexes, and saved account credentials, with
+  matching insert flows for each record type.
 - Notes with tags.
 - Indexes: checklist-style records with individual items and completion state.
 - Account and credential records.
-- Daily prayer completion tracking and history.
-- Personal finance with financial accounts, income/expense tracking, transfers, recurring expense shortcuts, budgets, financial history, and insights.
-- A home dashboard with recent activity and summaries.
-- Archivum Agent, which can answer natural-language questions using the signed-in user's archived data.
+- Daily prayer completion tracking with a progress dashboard, 28-day preview,
+  and monthly history.
+- Personal finance with a combined income/expense entry screen, an inline
+  transaction timeline, a dedicated all-accounts transfer flow, account nodes,
+  budget allocation, financial history, and insights.
+- A home dashboard with live status, archive metrics, quick actions, and
+  recent activity.
 - Light and dark themes.
 
 ## Tech Stack
@@ -24,7 +29,6 @@ The app uses Supabase for authentication and persistent data, Riverpod for appli
 | Client | Flutter / Dart |
 | State management | Riverpod |
 | Backend | Supabase (Auth, Postgres, RPC) |
-| AI integration | OpenRouter |
 | HTTP | `http` |
 
 ## Requirements
@@ -32,7 +36,6 @@ The app uses Supabase for authentication and persistent data, Riverpod for appli
 - Flutter SDK compatible with Dart `^3.11.0`.
 - A Supabase project with the project's database schema, Row Level Security policies, and RPC functions configured.
 - Google OAuth configured in Supabase if the optional Google registration flow will be used.
-- An OpenRouter API key if the Agent feature will be used.
 
 ## Getting Started
 
@@ -59,7 +62,6 @@ The app uses Supabase for authentication and persistent data, Riverpod for appli
    ```dotenv
    SUPABASE_URL=https://your-project.supabase.co
    SUPABASE_ANON_KEY=your-publishable-or-anon-key
-   OPENROUTER_API_KEY=your-openrouter-key
    ```
 
 5. Run the app on a connected device, emulator, or desktop target:
@@ -72,7 +74,7 @@ The app loads `.env` during startup before initializing Supabase. It will not ru
 
 ## Backend Setup
 
-Create and configure the Supabase project before using the app. The client expects authenticated, user-scoped access to the app's data tables and several RPC functions used by the dashboard, insights, and AI agent.
+Create and configure the Supabase project before using the app. The client expects authenticated, user-scoped access to the app's data tables and RPC functions used by the dashboard and insights.
 
 The exact schema, table relationships, column contracts, RPC names, and domain rules are maintained in [AGENTS.md](AGENTS.md). Keep that document aligned with the backend whenever the data model changes.
 
@@ -89,9 +91,8 @@ For a secure setup:
 | --- | --- | --- |
 | `SUPABASE_URL` | Supabase project URL | Yes |
 | `SUPABASE_ANON_KEY` | Client-safe Supabase publishable/anon key | Yes |
-| `OPENROUTER_API_KEY` | Enables Archivum Agent requests | Only for Agent |
 
-Do not commit `.env` or real keys. The `.env` file is bundled as a Flutter asset in the current app, which means `OPENROUTER_API_KEY` can be extracted from a distributed client build. For production, move Agent requests behind a trusted server or Supabase Edge Function and keep the OpenRouter key there.
+Do not commit `.env` or real keys. The `.env` file is bundled as a Flutter asset in the current app.
 
 ## Common Commands
 
@@ -124,14 +125,20 @@ test/                       Flutter tests
 
 Features are organized under `lib/src/features/`. Most keep data access in `data/`, models/contracts in `domain/`, and UI in `presentation/`. Shared services and repositories are accessed through Riverpod providers.
 
+The Almanac tab aggregates notes, account credentials, and indexes. Its add-note,
+add-account, and add-index screens share the same dark archive design language
+while still writing through their feature repositories.
+
 ## Development Notes
 
 - Keep user data isolated by the authenticated user in both client queries and Supabase RLS policies.
 - Financial amounts are persisted as integer cents; convert only at the UI boundary.
 - Finance uses `accounts` for financial accounts and `credentials` for saved login/account credentials.
 - Finance tag breakdowns are stored in `transaction_splits`; recurring expense rows are templates and are excluded from normal totals.
+- Finance budget allocation is managed from the account nodes view, while the
+  main Finance tab focuses on entry and the recent timeline.
 - Prayer tracking uses a 05:00 local-time boundary for its active day.
-- The Agent is intended to issue read-only database queries through the `run_agent_query` RPC.
+- Errors use the shared `AppError` model. User-facing messages are sanitized and third-party/backend exceptions should be converted at repository or service boundaries.
 - The current widget test covers the standardized login screen. Expand it as auth and onboarding flows evolve.
 
 ## Contributor Guidance

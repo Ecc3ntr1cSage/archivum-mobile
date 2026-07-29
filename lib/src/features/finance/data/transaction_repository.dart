@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/app_error.dart';
 
 import '../domain/transaction.dart';
 
@@ -8,7 +9,8 @@ class TransactionRepository {
 
   int _toCents(double amount) => (amount * 100).round();
 
-  Object? _dbId(String? value) => value == null ? null : int.tryParse(value) ?? value;
+  Object? _dbId(String? value) =>
+      value == null ? null : int.tryParse(value) ?? value;
 
   String? _formatDate(DateTime? date) {
     if (date == null) return null;
@@ -23,7 +25,9 @@ class TransactionRepository {
 
   Future<String> _requireUserId() async {
     final userId = client.auth.currentUser?.id;
-    if (userId == null) throw Exception('User is not logged in');
+    if (userId == null) {
+      throw AppError.auth('You must be signed in to manage transactions.');
+    }
     return userId;
   }
 
@@ -34,7 +38,11 @@ class TransactionRepository {
   Future<FinancialAccount> createAccount(FinancialAccount account) async {
     final userId = await _requireUserId();
     final payload = account.toJson()..['user_id'] = userId;
-    final response = await client.from('accounts').insert(payload).select().single();
+    final response = await client
+        .from('accounts')
+        .insert(payload)
+        .select()
+        .single();
     await _logActivity('finance_account_created');
     return FinancialAccount.fromJson(response);
   }
@@ -82,8 +90,7 @@ class TransactionRepository {
     return accounts
         .map(
           (account) => account.copyWith(
-            currentBalance:
-                account.openingBalance + (deltas[account.id] ?? 0),
+            currentBalance: account.openingBalance + (deltas[account.id] ?? 0),
           ),
         )
         .toList();
@@ -92,11 +99,11 @@ class TransactionRepository {
   Future<void> createTransaction(TransactionModel transaction) async {
     final userId = await _requireUserId();
     if (transaction.accountId == null) {
-      throw Exception('Please select an account');
+      throw AppError.validation('Please select an account.');
     }
     if (transaction.type != TransactionType.transfer &&
         transaction.splits.isEmpty) {
-      throw Exception('Please add at least one tag split');
+      throw AppError.validation('Please add at least one tag split.');
     }
 
     final splitTotal = transaction.splits.fold<double>(
@@ -105,7 +112,9 @@ class TransactionRepository {
     );
     if (transaction.type != TransactionType.transfer &&
         _toCents(splitTotal) != _toCents(transaction.amount)) {
-      throw Exception('Split amounts must equal the transaction amount');
+      throw AppError.validation(
+        'Split amounts must equal the transaction amount.',
+      );
     }
 
     final inserted = await client
@@ -133,17 +142,19 @@ class TransactionRepository {
 
     final transactionId = inserted['id'].toString();
     if (transaction.type != TransactionType.transfer) {
-      await client.from('transaction_splits').insert(
-        transaction.splits
-            .map(
-              (split) => {
-                'transaction_id': transactionId,
-                'tag_id': _dbId(split.tagId),
-                'amount': _toCents(split.amount),
-              },
-            )
-            .toList(),
-      );
+      await client
+          .from('transaction_splits')
+          .insert(
+            transaction.splits
+                .map(
+                  (split) => {
+                    'transaction_id': transactionId,
+                    'tag_id': _dbId(split.tagId),
+                    'amount': _toCents(split.amount),
+                  },
+                )
+                .toList(),
+          );
     }
 
     final activityType = transaction.recurring
@@ -165,14 +176,16 @@ class TransactionRepository {
   }) async {
     final userId = await _requireUserId();
     if (fromAccountId == toAccountId) {
-      throw Exception('Choose two different accounts');
+      throw AppError.validation('Choose two different accounts.');
     }
 
     final accounts = await getAccounts();
     final from = accounts.firstWhere((account) => account.id == fromAccountId);
     final to = accounts.firstWhere((account) => account.id == toAccountId);
     if (from.currency != to.currency) {
-      throw Exception('Transfers only support same-currency accounts');
+      throw AppError.validation(
+        'Transfers only support same-currency accounts.',
+      );
     }
 
     final transferId = _transferToken(userId);
@@ -210,14 +223,18 @@ class TransactionRepository {
 
   Future<void> updateTransaction(TransactionModel transaction) async {
     if (transaction.type == TransactionType.transfer) {
-      throw Exception('Edit transfers by deleting and recreating them');
+      throw AppError.validation(
+        'Edit transfers by deleting and recreating them.',
+      );
     }
     final splitTotal = transaction.splits.fold<double>(
       0,
       (sum, split) => sum + split.amount,
     );
     if (_toCents(splitTotal) != _toCents(transaction.amount)) {
-      throw Exception('Split amounts must equal the transaction amount');
+      throw AppError.validation(
+        'Split amounts must equal the transaction amount.',
+      );
     }
 
     await client
@@ -237,17 +254,19 @@ class TransactionRepository {
         .from('transaction_splits')
         .delete()
         .eq('transaction_id', transaction.id);
-    await client.from('transaction_splits').insert(
-      transaction.splits
-          .map(
-            (split) => {
-              'transaction_id': transaction.id,
-              'tag_id': _dbId(split.tagId),
-              'amount': _toCents(split.amount),
-            },
-          )
-          .toList(),
-    );
+    await client
+        .from('transaction_splits')
+        .insert(
+          transaction.splits
+              .map(
+                (split) => {
+                  'transaction_id': transaction.id,
+                  'tag_id': _dbId(split.tagId),
+                  'amount': _toCents(split.amount),
+                },
+              )
+              .toList(),
+        );
 
     await _logActivity(
       transaction.type == TransactionType.income
@@ -326,14 +345,15 @@ class TransactionRepository {
 
     var query = client
         .from('transactions')
-        .select('*, accounts(name, currency), transaction_splits(*, tags(text))')
+        .select(
+          '*, accounts(name, currency), transaction_splits(*, tags(text))',
+        )
         .eq('user_id', userId);
 
     if (recurringOnly) {
-      query = query.eq('recurring', true).eq(
-            'status',
-            TransactionType.expense.index,
-          );
+      query = query
+          .eq('recurring', true)
+          .eq('status', TransactionType.expense.index);
     } else if (!includeRecurring) {
       query = query.eq('recurring', false);
     }

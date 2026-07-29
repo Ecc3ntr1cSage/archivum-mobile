@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../core/providers/account_repository_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../domain/account.dart';
@@ -69,10 +70,16 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
   Future<void> _loadTags() async {
     if (!mounted) return;
     try {
-      final tags = await ref.read(accountRepositoryProvider).getTags('credential');
+      final tags = await ref
+          .read(accountRepositoryProvider)
+          .getTags('credential');
       if (!mounted) return;
       setState(() => _tags = tags);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Unable to load credential tags: ${AppError.from(error, stackTrace).message}',
+      );
+    }
   }
 
   @override
@@ -86,9 +93,9 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
 
   Future<void> _saveChanges() async {
     if (_titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title cannot be empty')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Title cannot be empty')));
       return;
     }
 
@@ -100,15 +107,18 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
         userId: _account.userId,
         title: _titleCtrl.text.trim(),
         method: _loginMethod == LoginMethod.sso ? 'sso' : 'email-password',
-        email: _loginMethod == LoginMethod.emailPassword &&
+        email:
+            _loginMethod == LoginMethod.emailPassword &&
                 _emailCtrl.text.trim().isNotEmpty
             ? _emailCtrl.text.trim()
             : null,
-        username: _loginMethod == LoginMethod.emailPassword &&
+        username:
+            _loginMethod == LoginMethod.emailPassword &&
                 _usernameCtrl.text.trim().isNotEmpty
             ? _usernameCtrl.text.trim()
             : null,
-        password: _loginMethod == LoginMethod.emailPassword &&
+        password:
+            _loginMethod == LoginMethod.emailPassword &&
                 _passwordCtrl.text.trim().isNotEmpty
             ? _passwordCtrl.text.trim()
             : null,
@@ -119,7 +129,9 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
         createdAt: _account.createdAt,
       );
 
-      final result = await ref.read(accountRepositoryProvider).updateAccount(updated);
+      final result = await ref
+          .read(accountRepositoryProvider)
+          .updateAccount(updated);
       if (!mounted) return;
 
       setState(() {
@@ -127,15 +139,19 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
         _isEditing = false;
         _isSaving = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Credential updated')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Credential updated')));
       Navigator.of(context).pop('updated');
-    } catch (e) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update: $e')),
+        SnackBar(
+          content: Text(
+            'Failed to update: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
       );
     }
   }
@@ -177,19 +193,23 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
       await ref.read(accountRepositoryProvider).deleteAccount(_account.id!);
       if (!mounted) return;
       Navigator.of(context).pop('deleted');
-    } catch (e) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete: $e')),
+        SnackBar(
+          content: Text(
+            'Failed to delete: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
       );
     }
   }
 
   void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label copied to clipboard')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$label copied to clipboard')));
   }
 
   void _cancelEditing() {
@@ -252,7 +272,9 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
               Navigator.of(context).pop();
             }
           },
-          icon: Icon(_isEditing ? Icons.close_rounded : Icons.arrow_back_rounded),
+          icon: Icon(
+            _isEditing ? Icons.close_rounded : Icons.arrow_back_rounded,
+          ),
         ),
         title: Text(_isEditing ? 'Edit Credential' : _account.title),
         actions: _isEditing
@@ -287,7 +309,10 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
                 ),
                 IconButton(
                   onPressed: _deleteAccount,
-                  icon: Icon(Icons.delete_outline_rounded, color: theme.destructive),
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: theme.destructive,
+                  ),
                   tooltip: 'Delete',
                 ),
               ],
@@ -310,16 +335,24 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
                   ? 'Update login details, provider, and tag without leaving the page.'
                   : (_isSso
                         ? 'SSO via ${_account.provider ?? 'provider'}'
-                        : _account.email ?? _account.username ?? _account.method),
+                        : _account.email ??
+                              _account.username ??
+                              _account.method),
               chips: [
                 _HeroChip(label: _account.method.toUpperCase(), accent: accent),
                 if ((_account.tags ?? '').isNotEmpty)
                   _HeroChip(label: _account.tags!, accent: accent),
-                _HeroChip(label: _formatDate(_account.createdAt), accent: accent),
+                _HeroChip(
+                  label: _formatDate(_account.createdAt),
+                  accent: accent,
+                ),
               ],
             ),
             const SizedBox(height: 18),
-            if (_isEditing) _buildEditForm(theme, accent) else _buildDetailView(theme, accent),
+            if (_isEditing)
+              _buildEditForm(theme, accent)
+            else
+              _buildDetailView(theme, accent),
           ],
         ),
       ),
@@ -372,7 +405,10 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
               ],
               if (_account.createdAt != null) ...[
                 _SectionDivider(theme: theme),
-                _DetailItem(label: 'Created', value: _formatDate(_account.createdAt)),
+                _DetailItem(
+                  label: 'Created',
+                  value: _formatDate(_account.createdAt),
+                ),
               ],
             ],
           ),
@@ -385,7 +421,9 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
             side: BorderSide(color: theme.destructive.withValues(alpha: 0.35)),
             padding: const EdgeInsets.symmetric(vertical: 15),
             minimumSize: const Size(double.infinity, 0),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
           icon: const Icon(Icons.delete_outline_rounded),
           label: const Text('Delete Credential'),
@@ -405,7 +443,9 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage> {
           const SizedBox(height: 8),
           TextField(
             controller: _titleCtrl,
-            decoration: const InputDecoration(hintText: 'GitHub, Netflix, Linear'),
+            decoration: const InputDecoration(
+              hintText: 'GitHub, Netflix, Linear',
+            ),
           ),
           const SizedBox(height: 16),
           _FieldLabel(label: 'Login method', accent: accent),
@@ -716,8 +756,9 @@ class _DetailItemState extends State<_DetailItem> {
   @override
   Widget build(BuildContext context) {
     final theme = context.archivumTheme;
-    final displayValue =
-        widget.isSecret && _obscured ? '........' : widget.value;
+    final displayValue = widget.isSecret && _obscured
+        ? '........'
+        : widget.value;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -750,7 +791,9 @@ class _DetailItemState extends State<_DetailItem> {
           IconButton(
             onPressed: () => setState(() => _obscured = !_obscured),
             icon: Icon(
-              _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              _obscured
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
               color: theme.mutedForeground,
               size: 18,
             ),
@@ -759,7 +802,11 @@ class _DetailItemState extends State<_DetailItem> {
         if (widget.copyable && widget.onCopy != null)
           IconButton(
             onPressed: widget.onCopy,
-            icon: Icon(Icons.copy_outlined, color: theme.mutedForeground, size: 18),
+            icon: Icon(
+              Icons.copy_outlined,
+              color: theme.mutedForeground,
+              size: 18,
+            ),
             tooltip: 'Copy',
           ),
       ],
@@ -832,7 +879,9 @@ class _PasswordEditFieldState extends State<_PasswordEditField> {
         suffixIcon: IconButton(
           onPressed: () => setState(() => _obscured = !_obscured),
           icon: Icon(
-            _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            _obscured
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
           ),
         ),
       ),

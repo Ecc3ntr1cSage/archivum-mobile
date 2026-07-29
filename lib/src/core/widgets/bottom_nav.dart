@@ -3,52 +3,63 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 class BottomNav extends StatelessWidget {
-  const BottomNav({super.key, required this.currentIndex, required this.onTap});
+  const BottomNav({
+    super.key,
+    required this.currentIndex,
+    required this.onTap,
+    this.isActionOpen = false,
+  });
 
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final bool isActionOpen;
 
   static const _items = <_NavItem>[
     _NavItem(icon: Icons.home_rounded, label: 'Home'),
-    _NavItem(icon: Icons.article_rounded, label: 'Almanac'),
+    _NavItem(icon: Icons.menu_book_rounded, label: 'Almanac'),
     _NavItem(icon: Icons.add_rounded, label: 'Add', isAction: true),
-    _NavItem(icon: Icons.schedule_rounded, label: 'Prayer'),
-    _NavItem(icon: Icons.pie_chart_rounded, label: 'Finance'),
+    _NavItem(icon: Icons.auto_awesome_rounded, label: 'Prayer'),
+    _NavItem(icon: Icons.account_balance_wallet_rounded, label: 'Finance'),
   ];
 
   @override
   Widget build(BuildContext context) {
     final theme = context.archivumTheme;
+    final railColor = Color.lerp(theme.sidebar, const Color(0xFF27253A), 0.72)!;
+    final railBorder = Color.lerp(theme.border, const Color(0xFF3A3552), 0.65)!;
 
     return Container(
-      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-      height: 58,
+      margin: const EdgeInsets.only(left: 14, right: 14, bottom: 10),
+      height: 62,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.sidebar,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: theme.border, width: 1),
+        color: railColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: railBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.24),
-            blurRadius: 28,
-            spreadRadius: 2,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 24,
+            spreadRadius: 1,
+            offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: theme.primary.withValues(alpha: 0.08),
-            blurRadius: 40,
-            spreadRadius: -4,
-            offset: const Offset(0, -2),
+            color: railColor.withValues(alpha: 0.58),
+            blurRadius: 10,
+            spreadRadius: -3,
+            offset: const Offset(0, -1),
           ),
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(_items.length, (i) {
           final item = _items[i];
           if (item.isAction) {
-            return _ActionButton(theme: theme, onTap: () => onTap(i));
+            return _ActionButton(
+              theme: theme,
+              isOpen: isActionOpen,
+              onTap: () => onTap(i),
+            );
           }
 
           return Expanded(
@@ -95,42 +106,54 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Tooltip(
-        message: label,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          height: 42,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? theme.primary.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
+    final activeColor = Color.lerp(
+      theme.primary,
+      const Color(0xFFFF4D92),
+      0.38,
+    )!;
+    final idleColor = Color.lerp(
+      theme.mutedForeground,
+      const Color(0xFFA39AB9),
+      0.4,
+    )!;
+
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(
+          height: double.infinity,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? activeColor.withValues(alpha: 0.18)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(11),
+                border: isSelected
+                    ? Border.all(color: activeColor.withValues(alpha: 0.28))
+                    : null,
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: activeColor.withValues(alpha: 0.34),
+                          blurRadius: 18,
+                          spreadRadius: -4,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(
                 icon,
-                color: isSelected ? theme.primary : theme.mutedForeground,
-                size: 19,
+                color: isSelected ? activeColor : idleColor,
+                size: 18,
               ),
-              const SizedBox(height: 2),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                width: isSelected ? 4 : 0,
-                height: isSelected ? 4 : 0,
-                decoration: BoxDecoration(
-                  color: theme.primary,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -139,41 +162,67 @@ class _NavButton extends StatelessWidget {
 }
 
 class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.theme, required this.onTap});
+  const _ActionButton({
+    required this.theme,
+    required this.isOpen,
+    required this.onTap,
+  });
 
   final ArchivumTheme theme;
+  final bool isOpen;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final buttonColor = Color.lerp(theme.secondary, theme.primary, 0.18)!;
+
     return Expanded(
       child: Center(
         child: Transform.translate(
-          offset: const Offset(0, -13),
+          offset: const Offset(0, -9),
           child: GestureDetector(
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
             child: Tooltip(
               message: 'Add',
-              child: Container(
-                width: 48,
-                height: 48,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: theme.secondary,
                   shape: BoxShape.circle,
-                  border: Border.all(color: theme.sidebar, width: 4),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      buttonColor.withValues(alpha: 0.96),
+                      theme.secondary.withValues(alpha: 0.92),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Color.lerp(theme.sidebar, Colors.black, 0.22)!,
+                    width: 4,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: theme.secondary.withValues(alpha: 0.34),
-                      blurRadius: 16,
+                      color: theme.secondary.withValues(
+                        alpha: isOpen ? 0.42 : 0.26,
+                      ),
+                      blurRadius: isOpen ? 22 : 16,
                       offset: const Offset(0, 8),
                     ),
                   ],
                 ),
-                child: Icon(
-                  Icons.add_rounded,
-                  color: theme.secondaryForeground,
-                  size: 26,
+                child: AnimatedRotation(
+                  turns: isOpen ? 0.125 : 0,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    isOpen ? Icons.close_rounded : Icons.add_rounded,
+                    color: theme.secondaryForeground,
+                    size: 24,
+                  ),
                 ),
               ),
             ),

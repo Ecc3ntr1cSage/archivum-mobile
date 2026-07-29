@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../core/providers/note_repository_provider.dart';
 import '../../../core/providers/snippet_repository_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -45,7 +46,11 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
       final tags = await ref.read(noteRepositoryProvider).getTags('note');
       if (!mounted) return;
       setState(() => _tags = tags);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Unable to load note tags: ${AppError.from(error, stackTrace).message}',
+      );
+    }
   }
 
   void _enterEditMode() {
@@ -64,9 +69,9 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
   Future<void> _saveEdit() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title is required')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Title is required')));
       return;
     }
 
@@ -79,7 +84,9 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
         tag: _selectedTag,
       );
 
-      final result = await ref.read(noteRepositoryProvider).updateNote(updatedNote);
+      final result = await ref
+          .read(noteRepositoryProvider)
+          .updateNote(updatedNote);
       if (!mounted) return;
 
       setState(() {
@@ -87,10 +94,14 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
         _isEditMode = false;
       });
       ref.invalidate(notesListProvider);
-    } catch (e) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e')),
+        SnackBar(
+          content: Text(
+            'Failed to save: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -135,10 +146,14 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
       ref.invalidate(notesListProvider);
       if (!mounted) return;
       Navigator.pop(context);
-    } catch (e) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete: $e')),
+        SnackBar(
+          content: Text(
+            'Failed to delete: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
       );
     }
   }
@@ -150,7 +165,10 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: theme.popover,
-        title: Text('Add Tag', style: TextStyle(color: theme.popoverForeground)),
+        title: Text(
+          'Add Tag',
+          style: TextStyle(color: theme.popoverForeground),
+        ),
         content: TextField(
           controller: tagController,
           decoration: const InputDecoration(hintText: 'Tag name'),
@@ -174,10 +192,14 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
                   if (!_tags.contains(text)) _tags.add(text);
                   _selectedTag = text;
                 });
-              } catch (e) {
+              } catch (error, stackTrace) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to add tag: $e')),
+                  SnackBar(
+                    content: Text(
+                      'Failed to add tag: ${AppError.from(error, stackTrace).message}',
+                    ),
+                  ),
                 );
               }
             },
@@ -225,12 +247,17 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
               Navigator.pop(context);
             }
           },
-          icon: Icon(_isEditMode ? Icons.close_rounded : Icons.arrow_back_rounded),
+          icon: Icon(
+            _isEditMode ? Icons.close_rounded : Icons.arrow_back_rounded,
+          ),
         ),
         title: Text(_isEditMode ? 'Edit Note' : _currentNote.title),
         actions: _isEditMode
             ? [
-                TextButton(onPressed: _exitEditMode, child: const Text('Cancel')),
+                TextButton(
+                  onPressed: _exitEditMode,
+                  child: const Text('Cancel'),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: ElevatedButton(
@@ -256,7 +283,10 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
                 ),
                 IconButton(
                   onPressed: _deleteNote,
-                  icon: Icon(Icons.delete_outline_rounded, color: theme.destructive),
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: theme.destructive,
+                  ),
                 ),
               ],
         bottom: PreferredSize(
@@ -282,11 +312,17 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
               chips: [
                 if ((_currentNote.tag ?? '').isNotEmpty)
                   _HeroChip(label: _currentNote.tag!, accent: accent),
-                _HeroChip(label: _formatDate(_currentNote.createdAt), accent: accent),
+                _HeroChip(
+                  label: _formatDate(_currentNote.createdAt),
+                  accent: accent,
+                ),
               ],
             ),
             const SizedBox(height: 18),
-            if (_isEditMode) _buildEditBody(theme, accent) else _buildViewBody(theme, accent),
+            if (_isEditMode)
+              _buildEditBody(theme, accent)
+            else
+              _buildViewBody(theme, accent),
           ],
         ),
       ),
@@ -324,7 +360,9 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
             side: BorderSide(color: theme.destructive.withValues(alpha: 0.35)),
             minimumSize: const Size(double.infinity, 0),
             padding: const EdgeInsets.symmetric(vertical: 15),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
           icon: const Icon(Icons.delete_outline_rounded),
           label: const Text('Delete Note'),
@@ -373,7 +411,9 @@ class _NoteDetailPageState extends ConsumerState<NoteDetailPage> {
             maxLines: null,
             minLines: 8,
             keyboardType: TextInputType.multiline,
-            decoration: const InputDecoration(hintText: 'Start writing your note'),
+            decoration: const InputDecoration(
+              hintText: 'Start writing your note',
+            ),
           ),
         ],
       ),

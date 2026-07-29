@@ -68,13 +68,13 @@ class PrayerDay {
   }
 
   Map<String, dynamic> toInsertMap() => {
-        'date': _formatDate(date),
-        'fajr': fajr,
-        'dhuhr': dhuhr,
-        'asr': asr,
-        'maghrib': maghrib,
-        'isha': isha,
-      };
+    'date': _formatDate(date),
+    'fajr': fajr,
+    'dhuhr': dhuhr,
+    'asr': asr,
+    'maghrib': maghrib,
+    'isha': isha,
+  };
 
   static String _formatDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'

@@ -48,7 +48,9 @@ class Account {
       password: json['password'],
       provider: json['provider'],
       tags: json['tags'],
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
     );
   }
 }

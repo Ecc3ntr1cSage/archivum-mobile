@@ -38,14 +38,16 @@ This file is the source of truth for future Codex sessions working in this repos
   Feature-first organization. Most features follow `data/`, `domain/`, and `presentation/`.
   - `auth/`: sign-in, sign-up, auth state.
   - `accounts/`: credential/account storage.
-  - `agent/`: AI chat backed by OpenRouter and Supabase RPC.
-  - `finance/`: transaction entry and history.
-  - `home/`: signed-in landing page.
+  - `finance/`: combined income/expense transaction entry, account nodes with
+    budget allocation, account-to-account transfers, and history.
+  - `home/`: signed-in landing page with live status, archive metrics, quick
+    actions, and recent activity.
   - `indexes/`: checklist/index records and child items.
   - `insights/`: analytics and derived summaries.
   - `notes/`: note CRUD.
   - `prayers/`: daily prayer tracking.
-  - `snippets/`: aggregated view over notes, credentials, and indexes.
+  - `snippets/`: Almanac archive over notes, credentials, and indexes, plus
+    shared Almanac visual primitives used by related insert screens.
 
 - `assets/`
   Static assets, including app icon assets.
@@ -61,8 +63,13 @@ This file is the source of truth for future Codex sessions working in this repos
 - State management uses `flutter_riverpod`.
 - Supabase is the primary backend and source of persistent state.
 - Repositories live under `lib/src/features/*/data/` and are usually exposed through providers in `lib/src/core/providers/`.
+- List-fetching UI should consume feature list `FutureProvider`s; keep repository calls and async loading/error state out of pages where a provider exists.
 - The UI is feature-oriented, with domain models kept close to their features.
 - `snippets` is not its own storage model; it aggregates multiple content types.
+- Almanac insert flows still live with their owning features:
+  `notes/presentation/add_note_page.dart`,
+  `accounts/presentation/add_credential_page.dart`, and
+  `indexes/presentation/add_index_page.dart`.
 
 ## Environment And Setup
 
@@ -70,7 +77,6 @@ Required environment variables are loaded from `.env`:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
-- `OPENROUTER_API_KEY`
 
 Reference file: `.env.example`
 
@@ -147,6 +153,13 @@ These tables and RPCs are referenced directly in the current codebase and should
   - Columns used in code: `activity_type`
   - Written to after many create/update/delete actions
 
+### Error Handling Contract
+
+- `AppError` in `lib/src/core/errors/app_error.dart` is the standardized error type.
+- Data repositories and services should throw `AppError` for validation, auth, configuration, and known infrastructure failures. Convert third-party exceptions with `AppError.from(error, stackTrace)` at the boundary.
+- Presentation catches should use `catch (error, stackTrace)` and display `AppError.from(error, stackTrace).message`; never show raw exception text or backend response bodies to users.
+- Preserve the original `cause` and `stackTrace` on `AppError` for diagnostics, while keeping user messages safe and actionable.
+
 ### RPC Functions
 
 - `get_insights`
@@ -155,9 +168,6 @@ These tables and RPCs are referenced directly in the current codebase and should
 - `get_activity_last_7_days`
   - Returns recent activity counts for the home/dashboard experience
 
-- `run_agent_query`
-  - Used by the AI agent to execute generated SQL
-  - Treat this as read-only from the app side
 
 ## Domain Rules And Project-Specific Behavior
 
@@ -170,21 +180,24 @@ These tables and RPCs are referenced directly in the current codebase and should
   - Preserve the `status` enum contract: `income = 0`, `expense = 1`, `transfer = 2`.
   - Store tag breakdowns in `transaction_splits`; percentage splits are UI input only and must be saved as exact cents.
   - Exclude `recurring = true` templates from posted ledger calculations.
-  - Transfers should not affect income or expense totals; derive account impact from `transfer_side`.
+- Transfers should not affect income or expense totals; derive account impact from `transfer_side`.
+  - The income/expense split-mode picker is only shown after the user has selected two or more tags. A single tag receives the full transaction amount automatically.
+  - Transfers use `presentation/transfer_page.dart`, which consolidates all financial accounts for choosing the source and destination.
+  - Budget allocation belongs on `presentation/account_nodes_page.dart`; keep
+    the main finance page focused on transaction entry and its timeline below
+    the commit button.
 
 - Prayers:
   - The app uses a custom "active day" boundary at 05:00 local time.
   - Before 05:00, actions still belong to the previous calendar day.
+  - The main prayer page shows the active day's completion state plus a
+    28-day history preview; the dedicated history page remains the monthly
+    detail view.
 
 - Indexes:
   - Parent records live in `indexes`.
   - Child checklist items live in `index_items`.
   - Updating an index may require syncing created, updated, and deleted child rows.
-
-- Agent feature:
-  - Uses OpenRouter, not OpenAI directly.
-  - The system prompt in `lib/src/features/agent/data/openrouter_service.dart` contains a mini schema contract for agent-generated SQL.
-  - Agent queries should remain `SELECT`-only.
 
 - Activity logging:
   - Many mutations also write an `activity_logs` row.
@@ -225,7 +238,6 @@ When using `/review`, pay special attention to:
 - Are index parent/child updates consistent between `indexes` and `index_items`?
 - Are prayer-day calculations respecting the 05:00 reset rule?
 - Are Riverpod providers still the main dependency access path?
-- Did a change accidentally break the agent SQL assumptions or RPC contracts?
 
 ## Known Repository Notes
 

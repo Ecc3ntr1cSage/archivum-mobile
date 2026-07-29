@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../notes/domain/note.dart';
+
+import '../../../core/errors/app_error.dart';
 import '../../../core/providers/note_repository_provider.dart';
+import '../../snippets/presentation/almanac_style.dart';
+import '../domain/note.dart';
 
 class AddNotePage extends ConsumerStatefulWidget {
   const AddNotePage({super.key});
@@ -13,27 +16,26 @@ class AddNotePage extends ConsumerStatefulWidget {
 class _AddNotePageState extends ConsumerState<AddNotePage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
-  
+
   List<String> _tags = [];
   String? _selectedTag;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => _loadTags());
+    Future.microtask(_loadTags);
   }
 
   Future<void> _loadTags() async {
     if (!mounted) return;
     try {
       final tags = await ref.read(noteRepositoryProvider).getTags('note');
-      if (mounted) {
-        setState(() {
-          _tags = tags;
-        });
-      }
-    } catch (e) {
-      // Tags failed to load, remain at defaults
+      if (mounted) setState(() => _tags = tags);
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Unable to load note tags: ${AppError.from(error, stackTrace).message}',
+      );
     }
   }
 
@@ -45,317 +47,296 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
   }
 
   Future<void> _showAddTagDialog() async {
-    final TextEditingController tagController = TextEditingController();
-    return showDialog(
+    final tagController = TextEditingController();
+    await showDialog<void>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Add Tag'),
-          content: TextField(
-            controller: tagController,
-            decoration: const InputDecoration(hintText: 'Tag name'),
-            autofocus: true,
+      builder: (context) => AlertDialog(
+        backgroundColor: AlmanacColors.surfaceHigh,
+        title: const Text('Add note tag'),
+        content: TextField(
+          controller: tagController,
+          autofocus: true,
+          decoration: almanacInputDecoration('Tag name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final text = tagController.text.trim();
-                if (text.isNotEmpty) {
-                  try {
-                    await ref
-                        .read(noteRepositoryProvider)
-                        .addTag(text, 'note');
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Tag added successfully')),
-                      );
-                      setState(() {
-                        if (!_tags.contains(text)) _tags.add(text);
-                        _selectedTag = text;
-                      });
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to add tag: $e')),
-                      );
-                    }
-                  }
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
+          ElevatedButton(
+            onPressed: () async {
+              final text = tagController.text.trim();
+              if (text.isEmpty) return;
+              try {
+                await ref.read(noteRepositoryProvider).addTag(text, 'note');
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                setState(() {
+                  if (!_tags.contains(text)) _tags.add(text);
+                  _selectedTag = text;
+                });
+              } catch (error, stackTrace) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Failed to add tag: ${AppError.from(error, stackTrace).message}',
+                    ),
+                  ),
+                );
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
     );
+    tagController.dispose();
+  }
+
+  Future<void> _saveNote() async {
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Title is required')));
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await ref
+          .read(noteRepositoryProvider)
+          .createNote(Note(title: title, content: content, tag: _selectedTag));
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to save note: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final clr = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: isDark ? clr.secondary : Colors.grey[600]),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Create Note',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.5,
-            color: theme.textTheme.titleLarge?.color,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.push_pin_outlined, color: isDark ? clr.secondary : Colors.grey[600]),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.more_vert, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: Column(
+      backgroundColor: AlmanacColors.background,
+      body: Stack(
         children: [
-          Container(
-            height: 1,
-            color: theme.dividerColor.withValues(alpha:0.1),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'TITLE',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey[400] : Colors.grey[500],
-                      letterSpacing: 1.2,
-                    ),
+          const Positioned.fill(child: AlmanacBackdrop()),
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                AlmanacTopBar(
+                  title: 'NEW NOTE',
+                  subtitle: 'Capture observation',
+                  leading: AlmanacIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: 'Back',
+                    onTap: () => Navigator.pop(context),
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _titleController,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textTheme.bodyLarge?.color,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Enter title here...',
-                      hintStyle: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.grey[700] : Colors.grey[300],
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        ..._tags.map((tag) {
-                          final isSelected = _selectedTag == tag;
-                          final inactiveColor = isDark
-                              ? const Color(0xFF1E293B).withValues(alpha: 0.6)
-                              : Colors.white.withValues(alpha: 0.8);
-                          final tagTextColor = isDark ? Colors.white70 : const Color(0xFF475569);
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: GestureDetector(
-                              onTap: () => setState(() => _selectedTag = isSelected ? null : tag),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? clr.primary.withValues(alpha: 0.15)
-                                      : inactiveColor,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? clr.primary
-                                        : clr.primary.withValues(alpha: 0.1),
-                                    width: isSelected ? 1.5 : 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    AnimatedContainer(
-                                      duration: const Duration(milliseconds: 180),
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: isSelected
-                                            ? clr.primary
-                                            : (isDark ? Colors.white24 : const Color(0xFFCBD5E1)),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      tag,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                        color: isSelected ? clr.primary : tagTextColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                ),
+                Expanded(
+                  child: ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
+                    children: [
+                      AlmanacPanel(
+                        borderColor: AlmanacColors.primary.withValues(
+                          alpha: 0.32,
+                        ),
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _FieldLabel('TITLE'),
+                            TextField(
+                              controller: _titleController,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: const TextStyle(
+                                color: AlmanacColors.foreground,
+                                fontSize: 31,
+                                fontWeight: FontWeight.w900,
+                                height: 1.08,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: 'Name this memory...',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
                               ),
                             ),
-                          );
-                        }),
-                        GestureDetector(
-                          onTap: _showAddTagDialog,
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: clr.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: clr.primary.withValues(alpha: 0.2)),
-                            ),
-                            child: Icon(Icons.add, size: 16, color: clr.primary),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  TextField(
-                    controller: _contentController,
-                    maxLines: null,
-                    keyboardType: TextInputType.multiline,
-                    style: TextStyle(
-                      fontSize: 18,
-                      height: 1.6,
-                      color: isDark ? Colors.grey[300] : Colors.grey[700],
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Start typing your note...',
-                      hintStyle: TextStyle(
-                        fontSize: 18,
-                        color: isDark ? Colors.grey[700] : Colors.grey[300],
                       ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDark ? theme.scaffoldBackgroundColor.withValues(alpha:0.5) : Colors.grey[50]?.withValues(alpha:0.5),
-              border: Border(
-                top: BorderSide(
-                  color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
-                ),
-              ),
-            ),
-            child: SafeArea(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.image_outlined, color: isDark ? clr.secondary : Colors.grey[500]),
-                        onPressed: () {},
+                      const SizedBox(height: 14),
+                      AlmanacPanel(
+                        borderColor: AlmanacColors.outline.withValues(
+                          alpha: 0.44,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Expanded(child: _FieldLabel('TAGS')),
+                                IconButton(
+                                  onPressed: _showAddTagDialog,
+                                  color: AlmanacColors.secondary,
+                                  icon: const Icon(Icons.add_rounded),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            if (_tags.isEmpty)
+                              const Text(
+                                'No tags linked yet.',
+                                style: TextStyle(color: AlmanacColors.muted),
+                              )
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final tag in _tags)
+                                    _TagChip(
+                                      label: tag,
+                                      selected: _selectedTag == tag,
+                                      onTap: () => setState(
+                                        () => _selectedTag = _selectedTag == tag
+                                            ? null
+                                            : tag,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                          ],
+                        ),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.format_list_bulleted, color: isDark ? clr.secondary : Colors.grey[500]),
-                        onPressed: () {},
+                      const SizedBox(height: 14),
+                      AlmanacPanel(
+                        borderColor: AlmanacColors.outline.withValues(
+                          alpha: 0.44,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _FieldLabel('CONTENT'),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _contentController,
+                              maxLines: null,
+                              minLines: 12,
+                              keyboardType: TextInputType.multiline,
+                              style: const TextStyle(
+                                color: AlmanacColors.foreground,
+                                fontSize: 17,
+                                height: 1.55,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: 'Start typing your note...',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: clr.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 4,
-                      shadowColor: clr.primary.withValues(alpha:0.4),
-                    ),
-                    onPressed: () async {
-                      final title = _titleController.text.trim();
-                      final content = _contentController.text.trim();
-                      
-                      if (title.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Title is required')),
-                        );
-                        return;
-                      }
-
-                      final newNote = Note(
-                        title: title,
-                        content: content,
-                        tag: _selectedTag,
-                      );
-                      
-                      try {
-                        final repository = ref.read(noteRepositoryProvider);
-                        await repository.createNote(newNote);
-                        
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                      } catch (e) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to save note: $e')),
-                        );
-                      }
-                    },
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Save Note',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: SafeArea(
+              child: ElevatedButton.icon(
+                onPressed: _isSaving ? null : _saveNote,
+                style: almanacCommitButtonStyle(AlmanacColors.primary),
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_rounded),
+                label: Text(_isSaving ? 'Saving...' : 'Commit note'),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        color: AlmanacColors.muted,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+}
+
+class _TagChip extends StatelessWidget {
+  const _TagChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? AlmanacColors.primary.withValues(alpha: 0.16)
+              : AlmanacColors.surfaceHighest,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? AlmanacColors.primary : AlmanacColors.outline,
+          ),
+        ),
+        child: Text(
+          '#$label',
+          style: TextStyle(
+            color: selected ? AlmanacColors.primarySoft : AlmanacColors.muted,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ),
     );
   }

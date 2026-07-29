@@ -15,8 +15,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('ARCHIVUM'), findsOneWidget);
+    expect(find.text('AUTHENTICATE'), findsOneWidget);
     expect(find.text('Continue with Google'), findsNothing);
   });
 }

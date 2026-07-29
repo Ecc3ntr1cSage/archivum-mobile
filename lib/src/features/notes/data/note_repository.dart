@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/app_error.dart';
 import '../domain/note.dart';
 import '../domain/note_repository.dart';
 
@@ -21,13 +22,17 @@ class SupabaseNoteRepository implements NoteRepository {
         .select()
         .single();
     final result = _mapToNote(response);
-    await client.from('activity_logs').insert({'activity_type': 'note_created'});
+    await client.from('activity_logs').insert({
+      'activity_type': 'note_created',
+    });
     return result;
   }
 
   @override
   Future<Note> updateNote(Note note) async {
-    if (note.id == null) throw Exception('Note ID is required for update');
+    if (note.id == null) {
+      throw AppError.validation('Note ID is required for update.');
+    }
 
     final payload = {
       'title': note.title,
@@ -42,14 +47,18 @@ class SupabaseNoteRepository implements NoteRepository {
         .select()
         .single();
     final result = _mapToNote(response);
-    await client.from('activity_logs').insert({'activity_type': 'note_updated'});
+    await client.from('activity_logs').insert({
+      'activity_type': 'note_updated',
+    });
     return result;
   }
 
   @override
   Future<void> deleteNote(String id) async {
     await client.from('notes').delete().eq('id', id);
-    await client.from('activity_logs').insert({'activity_type': 'note_deleted'});
+    await client.from('activity_logs').insert({
+      'activity_type': 'note_deleted',
+    });
   }
 
   @override
@@ -90,7 +99,9 @@ class SupabaseNoteRepository implements NoteRepository {
   @override
   Future<void> addTag(String text, String feature) async {
     final userId = client.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
+    if (userId == null) {
+      throw AppError.auth('You must be signed in to manage notes.');
+    }
 
     await client.from('tags').insert({
       'text': text,

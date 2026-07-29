@@ -50,15 +50,16 @@ class PrayerRepository {
   }
 
   /// Update a single prayer column for the record with [id].
-  Future<PrayerDay> updatePrayer(
-      int id, String prayerName, bool value) async {
+  Future<PrayerDay> updatePrayer(int id, String prayerName, bool value) async {
     final updated = await client
         .from('prayers')
         .update({prayerName.toLowerCase(): value})
         .eq('id', id)
         .select()
         .single();
-    await client.from('activity_logs').insert({'activity_type': 'prayer_updated'});
+    await client.from('activity_logs').insert({
+      'activity_type': 'prayer_updated',
+    });
     return PrayerDay.fromMap(updated);
   }
 
@@ -88,8 +89,10 @@ class PrayerRepository {
     final days = (res as List)
         .map((m) => PrayerDay.fromMap(m as Map<String, dynamic>))
         .toList();
-    final totalCompleted =
-        days.fold<int>(0, (sum, d) => sum + d.completedCount);
+    final totalCompleted = days.fold<int>(
+      0,
+      (sum, d) => sum + d.completedCount,
+    );
     return (totalCompleted, days.length);
   }
 }

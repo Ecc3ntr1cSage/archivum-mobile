@@ -7,7 +7,12 @@ class TagBreakdown {
 
   factory TagBreakdown.fromJson(Map<String, dynamic> json) {
     return TagBreakdown(
-      tag: json['tag'] as String? ?? json['method'] as String? ?? json['provider'] as String? ?? json['feature'] as String? ?? 'unknown',
+      tag:
+          json['tag'] as String? ??
+          json['method'] as String? ??
+          json['provider'] as String? ??
+          json['feature'] as String? ??
+          'unknown',
       count: (json['count'] as num?)?.toInt() ?? 0,
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../data/transaction_repository.dart';
 import '../domain/transaction.dart';
 
@@ -43,11 +44,15 @@ class _FinancialHistoryPageState extends State<FinancialHistoryPage> {
         _isLoading = false;
       });
       _applyFilters();
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load transactions: $error')),
+        SnackBar(
+          content: Text(
+            'Failed to load transactions: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
       );
     }
   }
@@ -171,8 +176,14 @@ class _FinancialHistoryPageState extends State<FinancialHistoryPage> {
                         initialValue: _selectedType,
                         items: const [
                           DropdownMenuItem(value: 'All', child: Text('All')),
-                          DropdownMenuItem(value: 'Income', child: Text('Income')),
-                          DropdownMenuItem(value: 'Expense', child: Text('Expense')),
+                          DropdownMenuItem(
+                            value: 'Income',
+                            child: Text('Income'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Expense',
+                            child: Text('Expense'),
+                          ),
                           DropdownMenuItem(
                             value: 'Transfer',
                             child: Text('Transfer'),
@@ -247,10 +258,7 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({
-    required this.transaction,
-    required this.onDelete,
-  });
+  const _TransactionTile({required this.transaction, required this.onDelete});
 
   final TransactionModel transaction;
   final VoidCallback onDelete;
@@ -297,7 +305,8 @@ class _TransactionTile extends StatelessWidget {
       subtitle: Text(
         [
           DateFormat('MMM d, yyyy').format(transaction.displayDate),
-          if ((transaction.accountName ?? '').isNotEmpty) transaction.accountName!,
+          if ((transaction.accountName ?? '').isNotEmpty)
+            transaction.accountName!,
           transaction.tagLabel,
         ].join(' • '),
       ),

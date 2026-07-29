@@ -69,7 +69,7 @@ class _AppShellState extends State<AppShell> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: 82,
+            bottom: 90,
             child: IgnorePointer(
               ignoring: !_isAddMenuOpen,
               child: _FloatingAddMenu(
@@ -87,7 +87,11 @@ class _AppShellState extends State<AppShell> {
             right: 0,
             bottom: 0,
             child: SafeArea(
-              child: BottomNav(currentIndex: _currentIndex, onTap: _onTap),
+              child: BottomNav(
+                currentIndex: _currentIndex,
+                isActionOpen: _isAddMenuOpen,
+                onTap: _onTap,
+              ),
             ),
           ),
         ],

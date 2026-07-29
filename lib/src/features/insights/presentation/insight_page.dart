@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/errors/app_error.dart';
 import '../../../core/providers/insight_provider.dart';
 import '../domain/insight_data.dart';
 import 'financial_insight_page.dart';
@@ -85,7 +86,7 @@ class InsightPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  error.toString(),
+                  AppError.from(error).message,
                   style: TextStyle(
                     color: primaryText.withValues(alpha: 0.6),
                     fontSize: 12,

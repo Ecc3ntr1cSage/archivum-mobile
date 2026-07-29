@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../core/errors/app_error.dart';
 import '../data/auth_repository.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
@@ -25,16 +26,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     final confirmPassword = _confirmPasswordController.text;
 
     if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
       return;
     }
 
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
       return;
     }
 
@@ -46,10 +47,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       if (mounted) {
         Navigator.pop(context);
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: ${e.toString()}')),
+          SnackBar(
+            content: Text(
+              'Registration failed: ${AppError.from(error, stackTrace).message}',
+            ),
+          ),
         );
       }
     } finally {
@@ -66,10 +71,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       if (mounted) {
         Navigator.pop(context);
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google Sign-Up failed: ${e.toString()}')),
+          SnackBar(
+            content: Text(
+              'Google Sign-Up failed: ${AppError.from(error, stackTrace).message}',
+            ),
+          ),
         );
       }
     } finally {
@@ -91,21 +100,26 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final Color bgColor =
-        isDark ? const Color(0xFF191121) : const Color(0xFFF7F6F8);
+    final Color bgColor = isDark
+        ? const Color(0xFF191121)
+        : const Color(0xFFF7F6F8);
     final Color primaryColor = const Color(0xFF8A2CE2);
     final Color accentColor = const Color(0xFFFF8C00);
-    final Color surfaceColor =
-        isDark ? const Color(0x1A8A2CE2) : Colors.white; // primary/10
+    final Color surfaceColor = isDark
+        ? const Color(0x1A8A2CE2)
+        : Colors.white; // primary/10
     final Color borderColor = isDark
         ? const Color(0x338A2CE2) // primary/20
         : const Color(0xFFE2E8F0);
-    final Color textColor =
-        isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
-    final Color subtitleColor =
-        isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
-    final Color iconColor =
-        isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
+    final Color textColor = isDark
+        ? const Color(0xFFF1F5F9)
+        : const Color(0xFF0F172A);
+    final Color subtitleColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF475569);
+    final Color iconColor = isDark
+        ? const Color(0xFF64748B)
+        : const Color(0xFF94A3B8);
 
     const String googleSvg = '''
       <svg viewBox="0 0 24 24">
@@ -134,7 +148,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       vertical: 24.0,
                     ),
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 448), // max-w-md
+                      constraints: const BoxConstraints(
+                        maxWidth: 448,
+                      ), // max-w-md
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -255,7 +271,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             obscureText: _obscureConfirmPassword,
                             onToggleObscure: () {
                               setState(() {
-                                _obscureConfirmPassword = !_obscureConfirmPassword;
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword;
                               });
                             },
                             surfaceColor: surfaceColor,
@@ -275,7 +292,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
                                 elevation: 8,
-                                shadowColor: primaryColor.withValues(alpha:0.5),
+                                shadowColor: primaryColor.withValues(
+                                  alpha: 0.5,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -305,13 +324,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             child: Row(
                               children: [
                                 Expanded(
-                                    child: Divider(
-                                        color: isDark
-                                            ? primaryColor.withValues(alpha:0.1)
-                                            : const Color(0xFFE2E8F0))),
+                                  child: Divider(
+                                    color: isDark
+                                        ? primaryColor.withValues(alpha: 0.1)
+                                        : const Color(0xFFE2E8F0),
+                                  ),
+                                ),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0),
+                                    horizontal: 16.0,
+                                  ),
                                   child: Text(
                                     'OR',
                                     style: TextStyle(
@@ -323,10 +345,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                   ),
                                 ),
                                 Expanded(
-                                    child: Divider(
-                                        color: isDark
-                                            ? primaryColor.withValues(alpha:0.1)
-                                            : const Color(0xFFE2E8F0))),
+                                  child: Divider(
+                                    color: isDark
+                                        ? primaryColor.withValues(alpha: 0.1)
+                                        : const Color(0xFFE2E8F0),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -351,10 +375,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                               ),
                               style: OutlinedButton.styleFrom(
                                 side: BorderSide(
-                                    color: isDark
-                                        ? primaryColor.withValues(alpha:0.3)
-                                        : borderColor,
-                                    width: 2),
+                                  color: isDark
+                                      ? primaryColor.withValues(alpha: 0.3)
+                                      : borderColor,
+                                  width: 2,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -399,7 +424,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isDark ? const Color(0xFF475569) : iconColor,
+                                color: isDark
+                                    ? const Color(0xFF475569)
+                                    : iconColor,
                               ),
                             ),
                           ),
@@ -415,9 +442,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 Expanded(
                   flex: 1,
                   child: Container(
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                    ),
+                    decoration: BoxDecoration(color: bgColor),
                     child: Stack(
                       children: [
                         // Background gradient & image composite
@@ -505,9 +530,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha:0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha:0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

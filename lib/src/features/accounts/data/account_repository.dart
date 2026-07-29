@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/app_error.dart';
 import '../domain/account.dart';
 import '../domain/account_repository.dart';
 
@@ -15,14 +16,16 @@ class SupabaseAccountRepository implements AccountRepository {
     if (payload['user_id'] == null) {
       payload['user_id'] = client.auth.currentUser?.id;
     }
-    
+
     final response = await client
         .from(_credentialsTable)
         .insert(payload)
         .select()
         .single();
     final result = Account.fromJson(response);
-    await client.from('activity_logs').insert({'activity_type': 'credential_created'});
+    await client.from('activity_logs').insert({
+      'activity_type': 'credential_created',
+    });
     return result;
   }
 
@@ -48,20 +51,26 @@ class SupabaseAccountRepository implements AccountRepository {
         .select()
         .single();
     final result = Account.fromJson(response);
-    await client.from('activity_logs').insert({'activity_type': 'credential_updated'});
+    await client.from('activity_logs').insert({
+      'activity_type': 'credential_updated',
+    });
     return result;
   }
 
   @override
   Future<void> deleteAccount(String id) async {
     await client.from(_credentialsTable).delete().eq('id', id);
-    await client.from('activity_logs').insert({'activity_type': 'credential_deleted'});
+    await client.from('activity_logs').insert({
+      'activity_type': 'credential_deleted',
+    });
   }
 
   @override
   Future<void> addTag(String text, String feature) async {
     final userId = client.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
+    if (userId == null) {
+      throw AppError.auth('You must be signed in to manage credentials.');
+    }
 
     await client.from('tags').insert({
       'text': text,
@@ -78,7 +87,10 @@ class SupabaseAccountRepository implements AccountRepository {
     final response = await client
         .from('tags')
         .select('text')
-        .eq('feature', feature) // Make sure to use the parameter instead of hardcoded
+        .eq(
+          'feature',
+          feature,
+        ) // Make sure to use the parameter instead of hardcoded
         .eq('user_id', userId);
 
     return (response as List).map((row) => row['text'] as String).toList();

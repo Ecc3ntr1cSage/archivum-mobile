@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../core/providers/account_repository_provider.dart';
 import '../../../core/providers/snippet_repository_provider.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/presentation/account_detail_page.dart';
+import '../../accounts/presentation/add_credential_page.dart';
 import '../../indexes/domain/index_item.dart';
+import '../../indexes/presentation/add_index_page.dart';
 import '../../indexes/presentation/index_detail_page.dart';
 import '../../notes/domain/note.dart';
+import '../../notes/presentation/add_note_page.dart';
 import '../../notes/presentation/note_detail_page.dart';
+import 'almanac_style.dart';
+
+enum _AlmanacTab { notes, accounts, indexes }
 
 class SnippetsPage extends ConsumerStatefulWidget {
   const SnippetsPage({super.key});
@@ -18,72 +24,25 @@ class SnippetsPage extends ConsumerStatefulWidget {
   ConsumerState<SnippetsPage> createState() => _SnippetsPageState();
 }
 
-class _SnippetsPageState extends ConsumerState<SnippetsPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
-  final TextEditingController _notesSearchController = TextEditingController();
-  final TextEditingController _accountsSearchController =
-      TextEditingController();
-  final TextEditingController _indexesSearchController =
-      TextEditingController();
-
-  String _notesSearchQuery = '';
-  String _accountsSearchQuery = '';
-  String _indexesSearchQuery = '';
-
-  List<Account> _accounts = [];
-  bool _accountsLoading = true;
+class _SnippetsPageState extends ConsumerState<SnippetsPage> {
+  final TextEditingController _searchController = TextEditingController();
+  _AlmanacTab _selectedTab = _AlmanacTab.accounts;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _notesSearchController.addListener(() {
+    _searchController.addListener(() {
       setState(
-        () => _notesSearchQuery = _notesSearchController.text.toLowerCase(),
+        () => _searchQuery = _searchController.text.trim().toLowerCase(),
       );
     });
-    _accountsSearchController.addListener(() {
-      setState(
-        () =>
-            _accountsSearchQuery = _accountsSearchController.text.toLowerCase(),
-      );
-    });
-    _indexesSearchController.addListener(() {
-      setState(
-        () => _indexesSearchQuery = _indexesSearchController.text.toLowerCase(),
-      );
-    });
-    Future.microtask(_loadAccounts);
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _notesSearchController.dispose();
-    _accountsSearchController.dispose();
-    _indexesSearchController.dispose();
+    _searchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadAccounts() async {
-    setState(() => _accountsLoading = true);
-    try {
-      final repository = ref.read(accountRepositoryProvider);
-      final accounts = await repository.listAccounts();
-      if (!mounted) return;
-      setState(() {
-        _accounts = accounts;
-        _accountsLoading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _accountsLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load accounts: $error')),
-      );
-    }
   }
 
   String _formatDateTime(DateTime? dateTime) {
@@ -91,12 +50,10 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
 
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-
     if (difference.inMinutes < 1) return 'Just now';
     if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
     if (difference.inHours < 24) return '${difference.inHours}h ago';
     if (difference.inDays < 7) return '${difference.inDays}d ago';
-
     return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
   }
 
@@ -113,9 +70,8 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
       context,
       MaterialPageRoute(builder: (_) => AccountDetailPage(account: account)),
     );
-
     if (result == 'updated' || result == 'deleted') {
-      await _loadAccounts();
+      ref.invalidate(accountsListProvider);
     }
   }
 
@@ -127,214 +83,113 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     ref.invalidate(indexesListProvider);
   }
 
+  Future<void> _openAddNote() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddNotePage()),
+    );
+    ref.invalidate(notesListProvider);
+  }
+
+  Future<void> _openAddAccount() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddCredentialPage()),
+    );
+    ref.invalidate(accountsListProvider);
+  }
+
+  Future<void> _openAddIndex() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddIndexPage()),
+    );
+    ref.invalidate(indexesListProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return Scaffold(
-      backgroundColor: theme.background,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _AlmanacHeader(theme: theme),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: _AlmanacTabs(controller: _tabController),
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildNotesTab(),
-                  _buildAccountsTab(),
-                  _buildIndexesTab(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNotesTab() {
     final notesAsync = ref.watch(notesListProvider);
-
-    return notesAsync.when(
-      loading: () => const _LoadingState(),
-      error: (error, _) => _ErrorState(
-        message: 'Could not load notes',
-        detail: error.toString(),
-        onRetry: () => ref.invalidate(notesListProvider),
-      ),
-      data: (notes) {
-        final filtered = _notesSearchQuery.isEmpty
-            ? notes
-            : notes.where((note) {
-                return note.title.toLowerCase().contains(_notesSearchQuery) ||
-                    note.content.toLowerCase().contains(_notesSearchQuery) ||
-                    (note.tag?.toLowerCase().contains(_notesSearchQuery) ??
-                        false);
-              }).toList();
-
-        return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(notesListProvider),
-          child: _AlmanacList(
-            search: _SearchField(
-              controller: _notesSearchController,
-              hint: 'Search notes',
-            ),
-            emptyIcon: Icons.edit_note_rounded,
-            emptyMessage: 'No notes found',
-            isEmpty: filtered.isEmpty,
-            children: [
-              for (final note in filtered)
-                _NoteCard(
-                  note: note,
-                  dateLabel: _formatDateTime(note.createdAt),
-                  onTap: () => _openNote(note),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildAccountsTab() {
-    final filtered = _accountsSearchQuery.isEmpty
-        ? _accounts
-        : _accounts.where((account) {
-            return account.title.toLowerCase().contains(_accountsSearchQuery) ||
-                account.method.toLowerCase().contains(_accountsSearchQuery) ||
-                (account.email?.toLowerCase().contains(_accountsSearchQuery) ??
-                    false) ||
-                (account.provider?.toLowerCase().contains(
-                      _accountsSearchQuery,
-                    ) ??
-                    false) ||
-                (account.tags?.toLowerCase().contains(_accountsSearchQuery) ??
-                    false);
-          }).toList();
-
-    if (_accountsLoading) return const _LoadingState();
-
-    return RefreshIndicator(
-      onRefresh: _loadAccounts,
-      child: _AlmanacList(
-        search: _SearchField(
-          controller: _accountsSearchController,
-          hint: 'Search accounts',
-        ),
-        emptyIcon: Icons.shield_outlined,
-        emptyMessage: 'No accounts found',
-        isEmpty: filtered.isEmpty,
-        children: [
-          for (final account in filtered)
-            _AccountCard(
-              account: account,
-              dateLabel: _formatDateTime(account.createdAt),
-              onTap: () => _openAccount(account),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIndexesTab() {
+    final accountsAsync = ref.watch(accountsListProvider);
     final indexesAsync = ref.watch(indexesListProvider);
 
-    return indexesAsync.when(
-      loading: () => const _LoadingState(),
-      error: (error, _) => _ErrorState(
-        message: 'Could not load indexes',
-        detail: error.toString(),
-        onRetry: () => ref.invalidate(indexesListProvider),
-      ),
-      data: (indexes) {
-        final filtered = _indexesSearchQuery.isEmpty
-            ? indexes
-            : indexes.where((index) {
-                return index.title.toLowerCase().contains(
-                      _indexesSearchQuery,
-                    ) ||
-                    index.items.any(
-                      (item) =>
-                          item.item.toLowerCase().contains(_indexesSearchQuery),
-                    );
-              }).toList();
-
-        return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(indexesListProvider),
-          child: _AlmanacList(
-            search: _SearchField(
-              controller: _indexesSearchController,
-              hint: 'Search indexes',
-            ),
-            emptyIcon: Icons.list_alt_rounded,
-            emptyMessage: 'No indexes found',
-            isEmpty: filtered.isEmpty,
-            children: [
-              for (final index in filtered)
-                _IndexCard(
-                  index: index,
-                  dateLabel: _formatDateTime(index.createdAt),
-                  onTap: () => _openIndex(index),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AlmanacHeader extends StatelessWidget {
-  const _AlmanacHeader({required this.theme});
-
-  final ArchivumTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-      decoration: BoxDecoration(
-        color: theme.background,
-        border: Border(bottom: BorderSide(color: theme.border)),
-      ),
-      child: Row(
+    return Scaffold(
+      backgroundColor: AlmanacColors.background,
+      body: Stack(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: theme.primary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              Icons.auto_stories_rounded,
-              color: theme.primary,
-              size: 21,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+          const Positioned.fill(child: AlmanacBackdrop()),
+          SafeArea(
+            bottom: false,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Almanac',
-                  style: TextStyle(
-                    color: theme.foreground,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                  ),
+                AlmanacTopBar(
+                  title: 'ARCHIVUM',
+                  subtitle: 'Almanac memory index',
+                  actions: [
+                    AlmanacIconButton(
+                      icon: Icons.note_add_rounded,
+                      tooltip: 'Add note',
+                      color: AlmanacColors.primarySoft,
+                      onTap: _openAddNote,
+                    ),
+                    const SizedBox(width: 8),
+                    AlmanacIconButton(
+                      icon: Icons.key_rounded,
+                      tooltip: 'Add account',
+                      color: AlmanacColors.secondary,
+                      onTap: _openAddAccount,
+                    ),
+                    const SizedBox(width: 8),
+                    AlmanacIconButton(
+                      icon: Icons.playlist_add_rounded,
+                      tooltip: 'Add index',
+                      color: AlmanacColors.tertiary,
+                      onTap: _openAddIndex,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Notes, credentials, and lists in one quiet place.',
-                  style: TextStyle(color: theme.mutedForeground, fontSize: 12),
+                Expanded(
+                  child: RefreshIndicator(
+                    color: AlmanacColors.primary,
+                    backgroundColor: AlmanacColors.surfaceHigh,
+                    onRefresh: () async {
+                      ref.invalidate(notesListProvider);
+                      ref.invalidate(accountsListProvider);
+                      ref.invalidate(indexesListProvider);
+                    },
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 118),
+                      children: [
+                        _SearchField(
+                          controller: _searchController,
+                          hasText: _searchQuery.isNotEmpty,
+                        ),
+                        const SizedBox(height: 16),
+                        _TabStrip(
+                          selected: _selectedTab,
+                          notesCount: notesAsync.asData?.value.length,
+                          accountsCount: accountsAsync.asData?.value.length,
+                          indexesCount: indexesAsync.asData?.value.length,
+                          onChanged: (tab) =>
+                              setState(() => _selectedTab = tab),
+                        ),
+                        const SizedBox(height: 18),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: _buildSelectedContent(
+                            notesAsync,
+                            accountsAsync,
+                            indexesAsync,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -343,84 +198,144 @@ class _AlmanacHeader extends StatelessWidget {
       ),
     );
   }
-}
 
-class _AlmanacTabs extends StatelessWidget {
-  const _AlmanacTabs({required this.controller});
-
-  final TabController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        color: theme.muted,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.border),
-      ),
-      child: TabBar(
-        controller: controller,
-        dividerColor: Colors.transparent,
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicatorPadding: EdgeInsets.zero,
-        indicator: BoxDecoration(
-          color: theme.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.border),
+  Widget _buildSelectedContent(
+    AsyncValue<List<Note>> notesAsync,
+    AsyncValue<List<Account>> accountsAsync,
+    AsyncValue<List<IndexEntry>> indexesAsync,
+  ) {
+    return switch (_selectedTab) {
+      _AlmanacTab.notes => notesAsync.when(
+        loading: () => const _LoadingState(key: ValueKey('notes-loading')),
+        error: (error, _) => _ErrorState(
+          key: const ValueKey('notes-error'),
+          message: 'Could not load notes',
+          detail: AppError.from(error).message,
+          onRetry: () => ref.invalidate(notesListProvider),
         ),
-        labelPadding: EdgeInsets.zero,
-        labelColor: theme.primary,
-        unselectedLabelColor: theme.mutedForeground,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-        tabs: const [
-          Tab(text: 'Notes'),
-          Tab(text: 'Accounts'),
-          Tab(text: 'Indexes'),
-        ],
+        data: _buildNotesGrid,
       ),
+      _AlmanacTab.accounts => accountsAsync.when(
+        loading: () => const _LoadingState(key: ValueKey('accounts-loading')),
+        error: (error, _) => _ErrorState(
+          key: const ValueKey('accounts-error'),
+          message: 'Could not load accounts',
+          detail: AppError.from(error).message,
+          onRetry: () => ref.invalidate(accountsListProvider),
+        ),
+        data: _buildAccountsGrid,
+      ),
+      _AlmanacTab.indexes => indexesAsync.when(
+        loading: () => const _LoadingState(key: ValueKey('indexes-loading')),
+        error: (error, _) => _ErrorState(
+          key: const ValueKey('indexes-error'),
+          message: 'Could not load indexes',
+          detail: AppError.from(error).message,
+          onRetry: () => ref.invalidate(indexesListProvider),
+        ),
+        data: _buildIndexesGrid,
+      ),
+    };
+  }
+
+  Widget _buildNotesGrid(List<Note> notes) {
+    final filtered = _searchQuery.isEmpty
+        ? notes
+        : notes.where((note) {
+            return note.title.toLowerCase().contains(_searchQuery) ||
+                note.content.toLowerCase().contains(_searchQuery) ||
+                (note.tag?.toLowerCase().contains(_searchQuery) ?? false);
+          }).toList();
+
+    if (filtered.isEmpty) {
+      return _EmptyState(
+        key: const ValueKey('notes-empty'),
+        icon: Icons.description_rounded,
+        message: 'No note records match this query.',
+        actionLabel: 'Capture note',
+        onAction: _openAddNote,
+      );
+    }
+
+    return _ResponsiveGrid(
+      key: const ValueKey('notes-grid'),
+      children: [
+        for (final note in filtered)
+          _NoteCard(
+            note: note,
+            dateLabel: _formatDateTime(note.createdAt),
+            onTap: () => _openNote(note),
+          ),
+      ],
     );
   }
-}
 
-class _AlmanacList extends StatelessWidget {
-  const _AlmanacList({
-    required this.search,
-    required this.emptyIcon,
-    required this.emptyMessage,
-    required this.isEmpty,
-    required this.children,
-  });
+  Widget _buildAccountsGrid(List<Account> accounts) {
+    final filtered = _searchQuery.isEmpty
+        ? accounts
+        : accounts.where((account) {
+            return account.title.toLowerCase().contains(_searchQuery) ||
+                account.method.toLowerCase().contains(_searchQuery) ||
+                (account.email?.toLowerCase().contains(_searchQuery) ??
+                    false) ||
+                (account.username?.toLowerCase().contains(_searchQuery) ??
+                    false) ||
+                (account.provider?.toLowerCase().contains(_searchQuery) ??
+                    false) ||
+                (account.tags?.toLowerCase().contains(_searchQuery) ?? false);
+          }).toList();
 
-  final Widget search;
-  final IconData emptyIcon;
-  final String emptyMessage;
-  final bool isEmpty;
-  final List<Widget> children;
+    if (filtered.isEmpty) {
+      return _EmptyState(
+        key: const ValueKey('accounts-empty'),
+        icon: Icons.key_rounded,
+        message: 'No account records match this query.',
+        actionLabel: 'Add account',
+        onAction: _openAddAccount,
+      );
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+    return _ResponsiveGrid(
+      key: const ValueKey('accounts-grid'),
       children: [
-        search,
-        const SizedBox(height: 14),
-        if (isEmpty)
-          _EmptyState(icon: emptyIcon, message: emptyMessage)
-        else
-          ...children.map(
-            (child) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: child,
-            ),
+        for (final account in filtered)
+          _AccountCard(
+            account: account,
+            dateLabel: _formatDateTime(account.createdAt),
+            onTap: () => _openAccount(account),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildIndexesGrid(List<IndexEntry> indexes) {
+    final filtered = _searchQuery.isEmpty
+        ? indexes
+        : indexes.where((index) {
+            return index.title.toLowerCase().contains(_searchQuery) ||
+                index.items.any(
+                  (item) => item.item.toLowerCase().contains(_searchQuery),
+                );
+          }).toList();
+
+    if (filtered.isEmpty) {
+      return _EmptyState(
+        key: const ValueKey('indexes-empty'),
+        icon: Icons.dataset_rounded,
+        message: 'No indexes match this query.',
+        actionLabel: 'Build index',
+        onAction: _openAddIndex,
+      );
+    }
+
+    return _ResponsiveGrid(
+      key: const ValueKey('indexes-grid'),
+      children: [
+        for (final index in filtered)
+          _IndexCard(
+            index: index,
+            dateLabel: _formatDateTime(index.createdAt),
+            onTap: () => _openIndex(index),
           ),
       ],
     );
@@ -428,36 +343,204 @@ class _AlmanacList extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, required this.hint});
+  const _SearchField({required this.controller, required this.hasText});
 
   final TextEditingController controller;
-  final String hint;
+  final bool hasText;
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
     return TextField(
       controller: controller,
-      style: TextStyle(color: theme.foreground, fontSize: 14),
+      style: const TextStyle(
+        color: AlmanacColors.foreground,
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+      ),
       decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(
-          Icons.search_rounded,
-          color: theme.mutedForeground,
-          size: 20,
-        ),
-        suffixIcon: controller.text.isEmpty
-            ? null
-            : IconButton(
+        hintText: 'Search the Almanac...',
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: hasText
+            ? IconButton(
                 onPressed: controller.clear,
-                icon: Icon(
-                  Icons.close_rounded,
-                  color: theme.mutedForeground,
-                  size: 18,
+                icon: const Icon(Icons.close_rounded),
+              )
+            : null,
+        filled: true,
+        fillColor: AlmanacColors.surfaceLow.withValues(alpha: 0.92),
+        border: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AlmanacColors.outline, width: 2),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+        ),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AlmanacColors.outline, width: 2),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AlmanacColors.primary, width: 2),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabStrip extends StatelessWidget {
+  const _TabStrip({
+    required this.selected,
+    required this.notesCount,
+    required this.accountsCount,
+    required this.indexesCount,
+    required this.onChanged,
+  });
+
+  final _AlmanacTab selected;
+  final int? notesCount;
+  final int? accountsCount;
+  final int? indexesCount;
+  final ValueChanged<_AlmanacTab> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _TabPill(
+            label: 'Notes',
+            count: notesCount,
+            tab: _AlmanacTab.notes,
+            selected: selected,
+            onChanged: onChanged,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _TabPill(
+            label: 'Accounts',
+            count: accountsCount,
+            tab: _AlmanacTab.accounts,
+            selected: selected,
+            onChanged: onChanged,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _TabPill(
+            label: 'Indexes',
+            count: indexesCount,
+            tab: _AlmanacTab.indexes,
+            selected: selected,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TabPill extends StatelessWidget {
+  const _TabPill({
+    required this.label,
+    required this.count,
+    required this.tab,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int? count;
+  final _AlmanacTab tab;
+  final _AlmanacTab selected;
+  final ValueChanged<_AlmanacTab> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = tab == selected;
+    return InkWell(
+      onTap: () => onChanged(tab),
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? AlmanacColors.primary : AlmanacColors.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isActive
+                ? AlmanacColors.primary
+                : AlmanacColors.outline.withValues(alpha: 0.72),
+          ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: AlmanacColors.primary.withValues(alpha: 0.5),
+                    blurRadius: 14,
+                  ),
+                ]
+              : null,
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  color: isActive
+                      ? AlmanacColors.background
+                      : AlmanacColors.foreground,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
+              if (count != null) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '$count',
+                  style: TextStyle(
+                    color: isActive
+                        ? AlmanacColors.background.withValues(alpha: 0.74)
+                        : AlmanacColors.muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
+    );
+  }
+}
+
+class _ResponsiveGrid extends StatelessWidget {
+  const _ResponsiveGrid({required this.children, super.key});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 900
+            ? 3
+            : constraints.maxWidth >= 620
+            ? 2
+            : 1;
+        const gap = 12.0;
+        final itemWidth =
+            (constraints.maxWidth - (gap * (columns - 1))) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
     );
   }
 }
@@ -475,17 +558,15 @@ class _NoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
     final tag = note.tag?.trim();
-
-    return _SurfaceCard(
+    return _ArchiveCard(
       onTap: onTap,
-      icon: Icons.edit_note_rounded,
-      accent: theme.primary,
+      icon: Icons.description_rounded,
+      accent: AlmanacColors.primary,
       title: note.title,
-      subtitle: note.content,
       metadata: dateLabel,
-      chip: tag == null || tag.isEmpty ? null : tag,
+      body: note.content.isEmpty ? 'No body text captured.' : note.content,
+      chips: [if (tag != null && tag.isNotEmpty) '#$tag'],
     );
   }
 }
@@ -503,31 +584,33 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
+    final provider = account.provider?.trim();
+    final tag = account.tags?.trim();
     final subtitle = account.method.toLowerCase() == 'sso'
-        ? 'SSO via ${account.provider ?? 'provider'}'
-        : account.email ?? account.username ?? account.method;
+        ? 'SSO via ${provider == null || provider.isEmpty ? 'provider' : provider}'
+        : account.email ?? account.username ?? 'Email-password credential';
 
-    return _SurfaceCard(
+    return _ArchiveCard(
       onTap: onTap,
-      icon: _iconForAccount(account.title),
-      accent: theme.secondary,
+      icon: _iconForAccount(account),
+      accent: AlmanacColors.secondary,
       title: account.title,
-      subtitle: subtitle,
       metadata: dateLabel,
-      chip: account.tags,
+      body: subtitle,
+      chips: [
+        account.method.toUpperCase(),
+        if (tag != null && tag.isNotEmpty) '#$tag',
+      ],
     );
   }
 
-  IconData _iconForAccount(String title) {
-    switch (title.toLowerCase()) {
-      case 'github':
-        return Icons.terminal_rounded;
-      case 'gmail':
-        return Icons.mail_outline_rounded;
-      default:
-        return Icons.shield_outlined;
+  IconData _iconForAccount(Account account) {
+    final haystack = '${account.title} ${account.provider ?? ''}'.toLowerCase();
+    if (haystack.contains('github')) return Icons.terminal_rounded;
+    if (haystack.contains('google') || haystack.contains('gmail')) {
+      return Icons.alternate_email_rounded;
     }
+    return Icons.key_rounded;
   }
 }
 
@@ -544,140 +627,117 @@ class _IndexCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
     final completed = index.items.where((item) => item.isChecked).length;
     final total = index.items.length;
+    final progress = total == 0 ? 0.0 : completed / total;
     final preview = index.items.isEmpty
-        ? 'No items yet'
+        ? 'No items yet.'
         : index.items.take(3).map((item) => item.item).join(' - ');
 
-    return _SurfaceCard(
+    return AlmanacButtonPanel(
       onTap: onTap,
-      icon: Icons.list_alt_rounded,
-      accent: theme.chart1,
-      title: index.title,
-      subtitle: preview,
-      metadata: dateLabel,
-      chip: '$completed/$total done',
-    );
-  }
-}
-
-class _SurfaceCard extends StatelessWidget {
-  const _SurfaceCard({
-    required this.onTap,
-    required this.icon,
-    required this.accent,
-    required this.title,
-    required this.subtitle,
-    required this.metadata,
-    this.chip,
-  });
-
-  final VoidCallback onTap;
-  final IconData icon;
-  final Color accent;
-  final String title;
-  final String subtitle;
-  final String metadata;
-  final String? chip;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.card,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: theme.border),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      borderColor: AlmanacColors.tertiary.withValues(alpha: 0.32),
+      padding: const EdgeInsets.all(18),
+      child: SizedBox(
+        height: 204,
+        child: Stack(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.13),
-                borderRadius: BorderRadius.circular(14),
+            Positioned(
+              top: -4,
+              right: -2,
+              child: Icon(
+                Icons.dataset_rounded,
+                color: AlmanacColors.foreground.withValues(alpha: 0.08),
+                size: 74,
               ),
-              child: Icon(icon, color: accent, size: 21),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            color: theme.foreground,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        metadata,
-                        style: TextStyle(
-                          color: theme.mutedForeground,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    subtitle.isEmpty ? 'No details' : subtitle,
-                    style: TextStyle(
-                      color: theme.mutedForeground,
-                      fontSize: 13,
-                      height: 1.35,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.verified_rounded,
+                      color: AlmanacColors.tertiary,
+                      size: 15,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (chip != null && chip!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.11),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        chip!,
-                        style: TextStyle(
-                          color: accent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    SizedBox(width: 6),
+                    Text(
+                      'GLOBAL INDEX',
+                      style: TextStyle(
+                        color: AlmanacColors.tertiary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: theme.mutedForeground,
-              size: 20,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  index.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AlmanacColors.foreground,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    height: 1.08,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  preview,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AlmanacColors.muted,
+                    fontSize: 13,
+                    height: 1.3,
+                  ),
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    const Text(
+                      'PROGRESS',
+                      style: TextStyle(
+                        color: AlmanacColors.muted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '$completed/$total',
+                      style: const TextStyle(
+                        color: AlmanacColors.tertiary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 7,
+                    backgroundColor: AlmanacColors.surfaceHighest,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AlmanacColors.tertiary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  dateLabel,
+                  style: const TextStyle(
+                    color: AlmanacColors.muted,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -686,15 +746,146 @@ class _SurfaceCard extends StatelessWidget {
   }
 }
 
-class _LoadingState extends StatelessWidget {
-  const _LoadingState();
+class _ArchiveCard extends StatelessWidget {
+  const _ArchiveCard({
+    required this.onTap,
+    required this.icon,
+    required this.accent,
+    required this.title,
+    required this.metadata,
+    required this.body,
+    required this.chips,
+  });
+
+  final VoidCallback onTap;
+  final IconData icon;
+  final Color accent;
+  final String title;
+  final String metadata;
+  final String body;
+  final List<String> chips;
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
+    return AlmanacButtonPanel(
+      onTap: onTap,
+      borderColor: accent.withValues(alpha: 0.28),
+      padding: const EdgeInsets.all(18),
+      child: SizedBox(
+        height: 202,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: accent, size: 21),
+                ),
+                const Spacer(),
+                Flexible(
+                  child: Text(
+                    metadata,
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AlmanacColors.muted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AlmanacColors.foreground,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              body,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AlmanacColors.muted,
+                fontSize: 13,
+                height: 1.3,
+              ),
+            ),
+            const Spacer(),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                for (final chip in chips.where(
+                  (chip) => chip.trim().isNotEmpty,
+                ))
+                  _Chip(label: chip, accent: accent),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    return Center(
-      child: CircularProgressIndicator(color: theme.primary, strokeWidth: 2),
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, required this.accent});
+
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: AlmanacColors.surfaceHighest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AlmanacColors.outline),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: accent,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingState extends StatelessWidget {
+  const _LoadingState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      key: ValueKey('loading-box'),
+      height: 260,
+      child: Center(
+        child: CircularProgressIndicator(
+          color: AlmanacColors.primary,
+          strokeWidth: 2.4,
+        ),
+      ),
     );
   }
 }
@@ -704,6 +895,7 @@ class _ErrorState extends StatelessWidget {
     required this.message,
     required this.detail,
     required this.onRetry,
+    super.key,
   });
 
   final String message;
@@ -712,59 +904,71 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline_rounded, color: theme.destructive),
-            const SizedBox(height: 10),
-            Text(
-              message,
-              style: TextStyle(
-                color: theme.foreground,
-                fontWeight: FontWeight.w800,
-              ),
+    return AlmanacPanel(
+      borderColor: AlmanacColors.error.withValues(alpha: 0.36),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: AlmanacColors.error),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: const TextStyle(
+              color: AlmanacColors.foreground,
+              fontWeight: FontWeight.w900,
             ),
-            const SizedBox(height: 6),
-            Text(
-              detail,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: theme.mutedForeground, fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-            TextButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            detail,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AlmanacColors.muted, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
       ),
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.icon, required this.message});
+  const _EmptyState({
+    required this.icon,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+    super.key,
+  });
 
   final IconData icon;
   final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.archivumTheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 56),
-      child: Column(
-        children: [
-          Icon(icon, color: theme.primary.withValues(alpha: 0.34), size: 48),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            style: TextStyle(color: theme.mutedForeground, fontSize: 13),
-          ),
-        ],
+    return AlmanacPanel(
+      borderColor: AlmanacColors.outline.withValues(alpha: 0.4),
+      child: SizedBox(
+        height: 210,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: AlmanacColors.primarySoft, size: 44),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AlmanacColors.muted),
+            ),
+            const SizedBox(height: 14),
+            ElevatedButton(
+              onPressed: onAction,
+              style: almanacCommitButtonStyle(AlmanacColors.primary),
+              child: Text(actionLabel),
+            ),
+          ],
+        ),
       ),
     );
   }

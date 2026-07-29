@@ -1,6 +1,7 @@
 import 'dart:math' show max;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/errors/app_error.dart';
 import '../../../core/providers/financial_insight_provider.dart';
 import '../domain/financial_insight_data.dart';
 
@@ -85,7 +86,7 @@ class FinancialInsightPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  error.toString(),
+                  AppError.from(error).message,
                   style: TextStyle(
                     color: primaryText.withValues(alpha: 0.6),
                     fontSize: 12,
@@ -125,7 +126,9 @@ class _FinancialBody extends StatelessWidget {
     final primaryText = isDark ? Colors.white : Colors.black87;
     final secondaryText = isDark ? Colors.grey[400]! : Colors.grey[600]!;
     final cardBg = isDark ? const Color(0xFF1E1A2E) : Colors.white;
-    final surfaceBg = isDark ? const Color(0xFF191121) : const Color(0xFFF7F6F8);
+    final surfaceBg = isDark
+        ? const Color(0xFF191121)
+        : const Color(0xFFF7F6F8);
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -141,26 +144,50 @@ class _FinancialBody extends StatelessWidget {
             const SizedBox(height: 20),
             // ── Monthly bar chart
             if (data.monthlyTrend.isNotEmpty) ...[
-              _buildSectionLabel(Icons.bar_chart_rounded, 'Monthly Trend', primaryText),
+              _buildSectionLabel(
+                Icons.bar_chart_rounded,
+                'Monthly Trend',
+                primaryText,
+              ),
               const SizedBox(height: 12),
-              _buildBarChart(isDark, primaryText, secondaryText, cardBg, surfaceBg),
+              _buildBarChart(
+                isDark,
+                primaryText,
+                secondaryText,
+                cardBg,
+                surfaceBg,
+              ),
               const SizedBox(height: 20),
             ],
             // ── Tag breakdowns
-            _buildSectionLabel(Icons.sell_outlined, 'Top Expense Categories', primaryText),
+            _buildSectionLabel(
+              Icons.sell_outlined,
+              'Top Expense Categories',
+              primaryText,
+            ),
             const SizedBox(height: 12),
             _buildTagBreakdown(
-              isDark, primaryText, secondaryText, cardBg,
+              isDark,
+              primaryText,
+              secondaryText,
+              cardBg,
               items: data.topExpenseTags,
               accent: _red,
               total: data.totalExpense,
               emptyLabel: 'No expenses recorded yet.',
             ),
             const SizedBox(height: 20),
-            _buildSectionLabel(Icons.trending_up_rounded, 'Top Income Sources', primaryText),
+            _buildSectionLabel(
+              Icons.trending_up_rounded,
+              'Top Income Sources',
+              primaryText,
+            ),
             const SizedBox(height: 12),
             _buildTagBreakdown(
-              isDark, primaryText, secondaryText, cardBg,
+              isDark,
+              primaryText,
+              secondaryText,
+              cardBg,
               items: data.topIncomeTags,
               accent: _green,
               total: data.totalIncome,
@@ -175,7 +202,11 @@ class _FinancialBody extends StatelessWidget {
 
   // ── Balance Hero ──────────────────────────────────────────────────────────
 
-  Widget _buildBalanceHero(bool isDark, Color primaryText, Color secondaryText) {
+  Widget _buildBalanceHero(
+    bool isDark,
+    Color primaryText,
+    Color secondaryText,
+  ) {
     final isPositive = data.totalBalance >= 0;
     final balanceColor = isPositive ? _green : _red;
 
@@ -304,7 +335,11 @@ class _FinancialBody extends StatelessWidget {
   // ── Income / Expense Row ──────────────────────────────────────────────────
 
   Widget _buildIncomeExpenseRow(
-      bool isDark, Color primaryText, Color secondaryText, Color cardBg) {
+    bool isDark,
+    Color primaryText,
+    Color secondaryText,
+    Color cardBg,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -412,7 +447,9 @@ class _FinancialBody extends StatelessWidget {
   ) {
     final months = data.monthlyTrend;
     // Show up to last 6 months
-    final shown = months.length > 6 ? months.sublist(months.length - 6) : months;
+    final shown = months.length > 6
+        ? months.sublist(months.length - 6)
+        : months;
     final maxVal = shown.fold<double>(
       0,
       (prev, m) => max(prev, max(m.income, m.expense)),
@@ -504,11 +541,17 @@ class _FinancialBody extends StatelessWidget {
             children: [
               _legendDot(_green),
               const SizedBox(width: 4),
-              Text('Income', style: TextStyle(fontSize: 11, color: secondaryText)),
+              Text(
+                'Income',
+                style: TextStyle(fontSize: 11, color: secondaryText),
+              ),
               const SizedBox(width: 16),
               _legendDot(_red),
               const SizedBox(width: 4),
-              Text('Expense', style: TextStyle(fontSize: 11, color: secondaryText)),
+              Text(
+                'Expense',
+                style: TextStyle(fontSize: 11, color: secondaryText),
+              ),
             ],
           ),
         ],
@@ -517,10 +560,10 @@ class _FinancialBody extends StatelessWidget {
   }
 
   Widget _legendDot(Color c) => Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2)),
-      );
+    width: 10,
+    height: 10,
+    decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2)),
+  );
 
   // ── Tag Breakdown ─────────────────────────────────────────────────────────
 
@@ -541,7 +584,10 @@ class _FinancialBody extends StatelessWidget {
           color: cardBg,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Text(emptyLabel, style: TextStyle(color: secondaryText, fontSize: 13)),
+        child: Text(
+          emptyLabel,
+          style: TextStyle(color: secondaryText, fontSize: 13),
+        ),
       );
     }
 
@@ -597,10 +643,7 @@ class _FinancialBody extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           '${(pct * 100).toStringAsFixed(0)}%',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: secondaryText,
-                          ),
+                          style: TextStyle(fontSize: 11, color: secondaryText),
                         ),
                       ],
                     ),

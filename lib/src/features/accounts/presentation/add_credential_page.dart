@@ -1,172 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/errors/app_error.dart';
 import '../../../core/providers/account_repository_provider.dart';
 import '../../../core/providers/supabase_provider.dart';
+import '../../snippets/presentation/almanac_style.dart';
 import '../domain/account.dart';
 
 enum LoginMethod { emailPassword, sso }
 
 enum SsoProvider { google, github, facebook }
-
-// Reusable input field widget
-class InputField extends StatefulWidget {
-  final TextEditingController controller;
-  final String label;
-  final String? hint;
-  final bool isPassword;
-
-  const InputField({
-    required this.controller,
-    required this.label,
-    this.hint,
-    this.isPassword = false,
-    super.key,
-  });
-
-  @override
-  State<InputField> createState() => _InputFieldState();
-}
-
-class _InputFieldState extends State<InputField> {
-  bool _obscureText = true;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = const Color(0xFF8A2CE2);
-    final inputBg = isDark
-        ? const Color(0xFF1E293B).withValues(alpha: 0.5)
-        : const Color(0xFFF7F6F8);
-    final borderColor = primary.withValues(alpha: 0.2);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF94A3B8), // slate-400
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: widget.controller,
-          obscureText: widget.isPassword ? _obscureText : false,
-          style: TextStyle(
-            color: isDark ? Colors.white : const Color(0xFF0F172A),
-          ),
-          decoration: InputDecoration(
-            hintText: widget.hint,
-            hintStyle: const TextStyle(color: Color(0xFF64748B)),
-            filled: true,
-            fillColor: inputBg,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: borderColor),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: primary, width: 2),
-            ),
-            suffixIcon: widget.isPassword
-                ? IconButton(
-                    icon: Icon(
-                      _obscureText
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: const Color(0xFF94A3B8),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscureText = !_obscureText;
-                      });
-                    },
-                  )
-                : null,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// Reusable SSO provider button
-class SsoProviderButton extends StatelessWidget {
-  final bool selected;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const SsoProviderButton({
-    required this.selected,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = const Color(0xFF8A2CE2);
-    final bgColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF7F6F8);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? primary : primary.withValues(alpha: 0.1),
-            width: selected ? 2 : 1,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: primary.withValues(alpha: 0.2),
-                    blurRadius: 0,
-                    spreadRadius: 2,
-                  ),
-                ]
-              : null,
-        ),
-        child: Opacity(
-          opacity: selected ? 1.0 : 0.6,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                color: selected
-                    ? primary
-                    : (isDark ? Colors.white : Colors.black),
-                size: 24,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class AddCredentialPage extends ConsumerStatefulWidget {
   const AddCredentialPage({super.key});
@@ -176,22 +19,23 @@ class AddCredentialPage extends ConsumerStatefulWidget {
 }
 
 class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
-  bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
   LoginMethod _loginMethod = LoginMethod.emailPassword;
   SsoProvider? _selectedProvider;
-
   List<String> _tags = [];
   String? _selectedTag;
+  bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => _loadTags());
+    Future.microtask(_loadTags);
   }
 
   Future<void> _loadTags() async {
@@ -200,70 +44,16 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
       final tags = await ref
           .read(accountRepositoryProvider)
           .getTags('credential');
-      if (mounted) {
-        setState(() {
-          _tags = tags;
-          // Ensure no tag is selected by default after loading
-          if (!_tags.contains(_selectedTag)) {
-            _selectedTag = null;
-          }
-        });
-      }
-    } catch (e) {
-      // Tags failed to load, remain at defaults
+      if (!mounted) return;
+      setState(() {
+        _tags = tags;
+        if (!_tags.contains(_selectedTag)) _selectedTag = null;
+      });
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Unable to load credential tags: ${AppError.from(error, stackTrace).message}',
+      );
     }
-  }
-
-  Future<void> _showAddTagDialog() async {
-    final TextEditingController tagController = TextEditingController();
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Add Tag'),
-          content: TextField(
-            controller: tagController,
-            decoration: const InputDecoration(hintText: 'Tag name'),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final text = tagController.text.trim();
-                if (text.isNotEmpty) {
-                  try {
-                    await ref
-                        .read(accountRepositoryProvider)
-                        .addTag(text, 'credential');
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Tag added successfully')),
-                      );
-                      setState(() {
-                        if (!_tags.contains(text)) _tags.add(text);
-                        _selectedTag = text;
-                      });
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to add tag: $e')),
-                      );
-                    }
-                  }
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -275,6 +65,56 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
     super.dispose();
   }
 
+  Future<void> _showAddTagDialog() async {
+    final tagController = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AlmanacColors.surfaceHigh,
+        title: const Text('Add account tag'),
+        content: TextField(
+          controller: tagController,
+          autofocus: true,
+          decoration: almanacInputDecoration('Tag name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final text = tagController.text.trim();
+              if (text.isEmpty) return;
+              try {
+                await ref
+                    .read(accountRepositoryProvider)
+                    .addTag(text, 'credential');
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                setState(() {
+                  if (!_tags.contains(text)) _tags.add(text);
+                  _selectedTag = text;
+                });
+              } catch (error, stackTrace) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Failed to add tag: ${AppError.from(error, stackTrace).message}',
+                    ),
+                  ),
+                );
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    tagController.dispose();
+  }
+
   Future<void> _saveCredential() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(
@@ -282,12 +122,16 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
       ).showSnackBar(const SnackBar(content: Text('Please provide a title')));
       return;
     }
+    if (_loginMethod == LoginMethod.sso && _selectedProvider == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Choose an SSO provider')));
+      return;
+    }
 
     setState(() => _isLoading = true);
-
     try {
       final supabase = ref.read(supabaseClientProvider);
-
       final account = Account(
         userId: supabase.auth.currentUser?.id,
         title: _titleController.text.trim(),
@@ -315,378 +159,428 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
         tags: _selectedTag,
       );
 
-      final repository = ref.read(accountRepositoryProvider);
-      final newAccount = await repository.createAccount(account);
+      final newAccount = await ref
+          .read(accountRepositoryProvider)
+          .createAccount(account);
 
-      if (mounted) {
-        // Convert inserted account to a simple result payload for callers.
-        final result = <String, String>{
-          'title': newAccount.title,
-          'email': newAccount.email ?? '',
-          'username': newAccount.username ?? '',
-          'method': newAccount.method,
-          'provider': newAccount.provider ?? '',
-        };
-        Navigator.of(context).pop(result);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save credential: \${e.toString()}'),
+      if (!mounted) return;
+      Navigator.of(context).pop(<String, String>{
+        'title': newAccount.title,
+        'email': newAccount.email ?? '',
+        'username': newAccount.username ?? '',
+        'method': newAccount.method,
+        'provider': newAccount.provider ?? '',
+      });
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to save credential: ${AppError.from(error, stackTrace).message}',
           ),
-        );
-      }
+        ),
+      );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Widget _ssoGrid() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: SsoProviderButton(
-            selected: _selectedProvider == SsoProvider.google,
-            icon: Icons.g_translate,
-            label: 'GOOGLE',
-            onTap: () => setState(() => _selectedProvider = SsoProvider.google),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: SsoProviderButton(
-            selected: _selectedProvider == SsoProvider.github,
-            icon: Icons.code,
-            label: 'GITHUB',
-            onTap: () => setState(() => _selectedProvider = SsoProvider.github),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: SsoProviderButton(
-            selected: _selectedProvider == SsoProvider.facebook,
-            icon: Icons.group,
-            label: 'FACEBOOK',
-            onTap: () =>
-                setState(() => _selectedProvider = SsoProvider.facebook),
-          ),
-        ),
-      ],
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = const Color(0xFF8A2CE2);
-    final accentOrange = const Color(0xFFF97316);
-    final bgColor = isDark ? const Color(0xFF191121) : const Color(0xFFF7F6F8);
-    final headerBgColor = isDark
-        ? const Color(0xFF191121).withValues(alpha: 0.8)
-        : const Color(0xFFF7F6F8).withValues(alpha: 0.8);
-
     return Scaffold(
-      backgroundColor: bgColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
-        child: Container(
-          decoration: BoxDecoration(
-            color: headerBgColor,
-            border: Border(
-              bottom: BorderSide(color: primary.withValues(alpha: 0.1)),
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shape: const CircleBorder(),
-                      padding: const EdgeInsets.all(8),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Add New Credential',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: primary.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: primary.withValues(alpha: 0.1)),
-          ),
-          child: Form(
-            key: _formKey,
+      backgroundColor: AlmanacColors.background,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: AlmanacBackdrop()),
+          SafeArea(
+            bottom: false,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                InputField(
-                  controller: _titleController,
-                  label: 'Account Title',
-                  hint: 'e.g. GitHub, Netflix',
-                ),
-                const SizedBox(height: 16),
-                // Login Method Dropdown
-                const Text(
-                  'Login Method',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF94A3B8),
+                AlmanacTopBar(
+                  title: 'NEW ACCOUNT',
+                  subtitle: 'Secure identity record',
+                  leading: AlmanacIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: 'Back',
+                    onTap: () => Navigator.pop(context),
                   ),
                 ),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<LoginMethod>(
-                  initialValue: _loginMethod,
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: Color(0xFF94A3B8),
-                  ),
-                  dropdownColor: isDark
-                      ? const Color(0xFF1E293B)
-                      : const Color(0xFFF7F6F8),
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    fontSize: 16,
-                  ),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: isDark
-                        ? const Color(0xFF1E293B).withValues(alpha: 0.5)
-                        : const Color(0xFFF7F6F8),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: primary.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: primary, width: 2),
-                    ),
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: LoginMethod.emailPassword,
-                      child: Text('Email-Password'),
-                    ),
-                    DropdownMenuItem(
-                      value: LoginMethod.sso,
-                      child: Text('SSO'),
-                    ),
-                  ],
-                  onChanged: (v) {
-                    setState(() {
-                      _loginMethod = v ?? LoginMethod.emailPassword;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                if (_loginMethod == LoginMethod.emailPassword) ...[
-                  InputField(
-                    controller: _emailController,
-                    label: 'Email',
-                    hint: 'Enter registered email',
-                  ),
-                  const SizedBox(height: 16),
-                  InputField(
-                    controller: _usernameController,
-                    label: 'Username',
-                    hint: 'Enter username (optional)',
-                  ),
-                  const SizedBox(height: 16),
-                  InputField(
-                    controller: _passwordController,
-                    label: 'Password',
-                    hint: 'Enter your password',
-                    isPassword: true,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                if (_loginMethod == LoginMethod.sso) ...[
-                  Container(
-                    padding: const EdgeInsets.only(top: 8),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: primary.withValues(alpha: 0.05)),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                Expanded(
+                  child: Form(
+                    key: _formKey,
+                    child: ListView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
                       children: [
-                        Text(
-                          'Select SSO Provider',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: accentOrange,
+                        AlmanacPanel(
+                          borderColor: AlmanacColors.secondary.withValues(
+                            alpha: 0.32,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _FieldLabel('IDENTITY NODE'),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _titleController,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: almanacInputDecoration(
+                                  'Account title',
+                                  prefixIcon: Icons.key_rounded,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              DropdownButtonFormField<LoginMethod>(
+                                initialValue: _loginMethod,
+                                dropdownColor: AlmanacColors.surfaceHigh,
+                                decoration: almanacInputDecoration(
+                                  'Login method',
+                                  prefixIcon: Icons.login_rounded,
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: LoginMethod.emailPassword,
+                                    child: Text('Email-password'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: LoginMethod.sso,
+                                    child: Text('SSO'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _loginMethod =
+                                        value ?? LoginMethod.emailPassword;
+                                  });
+                                },
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        _ssoGrid(),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 14),
+                        if (_loginMethod == LoginMethod.emailPassword)
+                          _PasswordFields(
+                            emailController: _emailController,
+                            usernameController: _usernameController,
+                            passwordController: _passwordController,
+                            obscurePassword: _obscurePassword,
+                            onTogglePassword: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                          )
+                        else
+                          _SsoPanel(
+                            selectedProvider: _selectedProvider,
+                            onSelected: (provider) =>
+                                setState(() => _selectedProvider = provider),
+                          ),
+                        const SizedBox(height: 14),
+                        AlmanacPanel(
+                          borderColor: AlmanacColors.outline.withValues(
+                            alpha: 0.44,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Expanded(child: _FieldLabel('TAGS')),
+                                  IconButton(
+                                    onPressed: _showAddTagDialog,
+                                    color: AlmanacColors.secondary,
+                                    icon: const Icon(Icons.add_rounded),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (_tags.isEmpty)
+                                const Text(
+                                  'No tags linked yet.',
+                                  style: TextStyle(color: AlmanacColors.muted),
+                                )
+                              else
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final tag in _tags)
+                                      _TagChip(
+                                        label: tag,
+                                        selected: _selectedTag == tag,
+                                        onTap: () => setState(
+                                          () => _selectedTag =
+                                              _selectedTag == tag ? null : tag,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                ],
-
-                const Text(
-                  'Tags',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _tags.contains(_selectedTag)
-                            ? _selectedTag
-                            : null,
-                        icon: const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Color(0xFF94A3B8),
-                        ),
-                        dropdownColor: isDark
-                            ? const Color(0xFF1E293B)
-                            : const Color(0xFFF7F6F8),
-                        style: TextStyle(
-                          color: isDark
-                              ? Colors.white
-                              : const Color(0xFF0F172A),
-                          fontSize: 16,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Select a tag',
-                          hintStyle: const TextStyle(color: Color(0xFF64748B)),
-                          filled: true,
-                          fillColor: isDark
-                              ? const Color(0xFF1E293B).withValues(alpha: 0.5)
-                              : const Color(0xFFF7F6F8),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: primary.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: primary, width: 2),
-                          ),
-                        ),
-                        items: _tags.map((tag) {
-                          return DropdownMenuItem(value: tag, child: Text(tag));
-                        }).toList(),
-                        onChanged: (v) {
-                          setState(() {
-                            _selectedTag = v;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    InkWell(
-                      onTap: _showAddTagDialog,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        height: 50, // Match typical input height
-                        width: 50,
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF1E293B).withValues(alpha: 0.5)
-                              : const Color(0xFFF7F6F8),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: primary.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.add,
-                          color: isDark
-                              ? Colors.white
-                              : const Color(0xFF0F172A),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _saveCredential,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 8,
-                    shadowColor: primary.withValues(alpha: 0.3),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
-                      : const Text(
-                          'Save Credential',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
                 ),
               ],
             ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: SafeArea(
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _saveCredential,
+                style: almanacCommitButtonStyle(AlmanacColors.secondary),
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.enhanced_encryption_rounded),
+                label: Text(_isLoading ? 'Saving...' : 'Commit account'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PasswordFields extends StatelessWidget {
+  const _PasswordFields({
+    required this.emailController,
+    required this.usernameController,
+    required this.passwordController,
+    required this.obscurePassword,
+    required this.onTogglePassword,
+  });
+
+  final TextEditingController emailController;
+  final TextEditingController usernameController;
+  final TextEditingController passwordController;
+  final bool obscurePassword;
+  final VoidCallback onTogglePassword;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlmanacPanel(
+      borderColor: AlmanacColors.outline.withValues(alpha: 0.44),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _FieldLabel('CREDENTIALS'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: almanacInputDecoration(
+              'Email',
+              prefixIcon: Icons.alternate_email_rounded,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: usernameController,
+            decoration: almanacInputDecoration(
+              'Username',
+              prefixIcon: Icons.person_outline_rounded,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: passwordController,
+            obscureText: obscurePassword,
+            decoration:
+                almanacInputDecoration(
+                  'Password',
+                  prefixIcon: Icons.password,
+                ).copyWith(
+                  suffixIcon: IconButton(
+                    onPressed: onTogglePassword,
+                    icon: Icon(
+                      obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: AlmanacColors.muted,
+                    ),
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SsoPanel extends StatelessWidget {
+  const _SsoPanel({required this.selectedProvider, required this.onSelected});
+
+  final SsoProvider? selectedProvider;
+  final ValueChanged<SsoProvider> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlmanacPanel(
+      borderColor: AlmanacColors.outline.withValues(alpha: 0.44),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _FieldLabel('SSO PROVIDER'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _SsoButton(
+                  provider: SsoProvider.google,
+                  selectedProvider: selectedProvider,
+                  icon: Icons.g_translate_rounded,
+                  label: 'Google',
+                  onSelected: onSelected,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SsoButton(
+                  provider: SsoProvider.github,
+                  selectedProvider: selectedProvider,
+                  icon: Icons.code_rounded,
+                  label: 'GitHub',
+                  onSelected: onSelected,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SsoButton(
+                  provider: SsoProvider.facebook,
+                  selectedProvider: selectedProvider,
+                  icon: Icons.group_rounded,
+                  label: 'Facebook',
+                  onSelected: onSelected,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SsoButton extends StatelessWidget {
+  const _SsoButton({
+    required this.provider,
+    required this.selectedProvider,
+    required this.icon,
+    required this.label,
+    required this.onSelected,
+  });
+
+  final SsoProvider provider;
+  final SsoProvider? selectedProvider;
+  final IconData icon;
+  final String label;
+  final ValueChanged<SsoProvider> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = provider == selectedProvider;
+    return InkWell(
+      onTap: () => onSelected(provider),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AlmanacColors.secondary.withValues(alpha: 0.12)
+              : AlmanacColors.surfaceLow,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AlmanacColors.secondary : AlmanacColors.outline,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: selected ? AlmanacColors.secondary : AlmanacColors.muted,
+            ),
+            const SizedBox(height: 7),
+            FittedBox(
+              child: Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  color: selected
+                      ? AlmanacColors.secondary
+                      : AlmanacColors.muted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        color: AlmanacColors.muted,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+}
+
+class _TagChip extends StatelessWidget {
+  const _TagChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? AlmanacColors.secondary.withValues(alpha: 0.14)
+              : AlmanacColors.surfaceHighest,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? AlmanacColors.secondary : AlmanacColors.outline,
+          ),
+        ),
+        child: Text(
+          '#$label',
+          style: TextStyle(
+            color: selected ? AlmanacColors.secondary : AlmanacColors.muted,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
           ),
         ),
       ),

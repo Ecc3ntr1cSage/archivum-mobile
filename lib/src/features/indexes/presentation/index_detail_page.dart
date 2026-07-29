@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../core/providers/index_repository_provider.dart';
 import '../../../core/providers/snippet_repository_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -101,7 +102,9 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
     if (item.id == null) return;
     final newStatus = item.isChecked ? 0 : 1;
     try {
-      await ref.read(indexRepositoryProvider).updateItemStatus(item.id!, newStatus);
+      await ref
+          .read(indexRepositoryProvider)
+          .updateItemStatus(item.id!, newStatus);
       setState(() {
         final idx = _currentIndex.items.indexWhere((i) => i.id == item.id);
         if (idx != -1) {
@@ -111,10 +114,14 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
         }
       });
       ref.invalidate(indexesListProvider);
-    } catch (e) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update status: $e')),
+        SnackBar(
+          content: Text(
+            'Failed to update status: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
       );
     }
   }
@@ -122,9 +129,9 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
   Future<void> _saveEdit() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title is required')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Title is required')));
       return;
     }
 
@@ -150,7 +157,9 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
         items: items,
       );
 
-      final result = await ref.read(indexRepositoryProvider).updateIndex(updatedEntry);
+      final result = await ref
+          .read(indexRepositoryProvider)
+          .updateIndex(updatedEntry);
       if (!mounted) return;
 
       setState(() {
@@ -158,10 +167,14 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
         _isEditMode = false;
       });
       ref.invalidate(indexesListProvider);
-    } catch (e) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e')),
+        SnackBar(
+          content: Text(
+            'Failed to save: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -206,10 +219,14 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
       ref.invalidate(indexesListProvider);
       if (!mounted) return;
       Navigator.pop(context);
-    } catch (e) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete: $e')),
+        SnackBar(
+          content: Text(
+            'Failed to delete: ${AppError.from(error, stackTrace).message}',
+          ),
+        ),
       );
     }
   }
@@ -237,7 +254,9 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
   Widget build(BuildContext context) {
     final theme = context.archivumTheme;
     final accent = theme.secondary;
-    final checkedCount = _currentIndex.items.where((item) => item.isChecked).length;
+    final checkedCount = _currentIndex.items
+        .where((item) => item.isChecked)
+        .length;
     final totalCount = _currentIndex.items.length;
     final progress = totalCount == 0 ? 0.0 : checkedCount / totalCount;
 
@@ -253,12 +272,17 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
               Navigator.pop(context);
             }
           },
-          icon: Icon(_isEditMode ? Icons.close_rounded : Icons.arrow_back_rounded),
+          icon: Icon(
+            _isEditMode ? Icons.close_rounded : Icons.arrow_back_rounded,
+          ),
         ),
         title: Text(_isEditMode ? 'Edit Index' : _currentIndex.title),
         actions: _isEditMode
             ? [
-                TextButton(onPressed: _exitEditMode, child: const Text('Cancel')),
+                TextButton(
+                  onPressed: _exitEditMode,
+                  child: const Text('Cancel'),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: ElevatedButton(
@@ -284,7 +308,10 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                 ),
                 IconButton(
                   onPressed: _deleteIndex,
-                  icon: Icon(Icons.delete_outline_rounded, color: theme.destructive),
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: theme.destructive,
+                  ),
                 ),
               ],
         bottom: PreferredSize(
@@ -307,7 +334,10 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
               progress: progress,
               chips: [
                 _HeroChip(label: '$totalCount items', accent: accent),
-                _HeroChip(label: _formatDate(_currentIndex.createdAt), accent: accent),
+                _HeroChip(
+                  label: _formatDate(_currentIndex.createdAt),
+                  accent: accent,
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -353,7 +383,8 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
                         item: _currentIndex.items[i],
                         index: i,
                         accent: accent,
-                        onTap: () => _toggleViewItemStatus(_currentIndex.items[i]),
+                        onTap: () =>
+                            _toggleViewItemStatus(_currentIndex.items[i]),
                       ),
                       if (i != _currentIndex.items.length - 1)
                         Padding(
@@ -372,7 +403,9 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
             side: BorderSide(color: theme.destructive.withValues(alpha: 0.35)),
             minimumSize: const Size(double.infinity, 0),
             padding: const EdgeInsets.symmetric(vertical: 15),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
           icon: const Icon(Icons.delete_outline_rounded),
           label: const Text('Delete Index'),
@@ -431,7 +464,9 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
               side: BorderSide(color: accent.withValues(alpha: 0.28)),
               minimumSize: const Size(double.infinity, 0),
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             icon: const Icon(Icons.add_circle_outline_rounded),
             label: const Text('Add Item'),
@@ -683,7 +718,9 @@ class _ViewItemTile extends StatelessWidget {
             child: Text(
               item.item,
               style: TextStyle(
-                color: item.isChecked ? theme.mutedForeground : theme.foreground,
+                color: item.isChecked
+                    ? theme.mutedForeground
+                    : theme.foreground,
                 fontSize: 14,
                 height: 1.45,
                 decoration: item.isChecked ? TextDecoration.lineThrough : null,
@@ -749,7 +786,11 @@ class _EditItemRow extends StatelessWidget {
                 ),
               ),
               child: checked
-                  ? const Icon(Icons.check_rounded, color: Colors.white, size: 15)
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 15,
+                    )
                   : null,
             ),
           ),
@@ -777,7 +818,10 @@ class _EditItemRow extends StatelessWidget {
           ),
           IconButton(
             onPressed: onDelete,
-            icon: Icon(Icons.delete_outline_rounded, color: theme.mutedForeground),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: theme.mutedForeground,
+            ),
             tooltip: 'Remove',
           ),
         ],
