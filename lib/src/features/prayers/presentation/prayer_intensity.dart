@@ -8,7 +8,7 @@ class PrayerIntensityColors {
   const PrayerIntensityColors._();
 
   static const noRecord = Color(0xFF28283E);
-  static const zero = Color(0xFF6B7280);
+  static const zero = Color(0xFF454653);
   static const one = Color(0xFFD94F5C);
   static const two = Color(0xFFE8794B);
   static const three = Color(0xFFF0B44A);

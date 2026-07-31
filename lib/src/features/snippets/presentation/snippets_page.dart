@@ -123,7 +123,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
             child: Column(
               children: [
                 AlmanacTopBar(
-                  title: 'ARCHIVUM',
+                  title: 'Almanac',
                   subtitle: 'Almanac memory index',
                   actions: [
                     AlmanacIconButton(
@@ -136,14 +136,14 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
                     AlmanacIconButton(
                       icon: Icons.key_rounded,
                       tooltip: 'Add account',
-                      color: AlmanacColors.secondary,
+                      color: AlmanacColors.accountAction,
                       onTap: _openAddAccount,
                     ),
                     const SizedBox(width: 8),
                     AlmanacIconButton(
                       icon: Icons.playlist_add_rounded,
                       tooltip: 'Add index',
-                      color: AlmanacColors.tertiary,
+                      color: AlmanacColors.indexAction,
                       onTap: _openAddIndex,
                     ),
                   ],

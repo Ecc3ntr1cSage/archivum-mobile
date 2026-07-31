@@ -25,6 +25,7 @@ This file is the source of truth for future Codex sessions working in this repos
   App-level widgets and navigation.
   - `app.dart`: top-level `MaterialApp`, theme selection, auth gate.
   - `shell.dart`: main signed-in shell with bottom navigation and add menu.
+  - Signed-in section headers: Archivum on Home, Almanac, Prayer Log, and Finance.
 
 - `lib/src/core/`
   Shared infrastructure.
@@ -202,7 +203,7 @@ These tables and RPCs are referenced directly in the current codebase and should
     28-day history preview; the dedicated history page remains the monthly
     detail view.
   - Prayer history uses a shared intensity scale: no record is neutral, `0` is
-    gray, then `1` red, `2` orange, `3` amber, `4` soft green, and `5` green.
+    dark gray, then `1` red, `2` orange, `3` amber, `4` soft green, and `5` green.
 
 - Indexes:
   - Parent records live in `indexes`.

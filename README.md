@@ -20,6 +20,8 @@ The app uses Supabase for authentication and persistent data and Riverpod for ap
   budget allocation, financial history, and insights.
 - A home dashboard with live status, archive metrics, quick actions, and
   recent activity.
+- Signed-in section headers are Archivum on Home, Almanac for the archive,
+  Prayer Log for prayer tracking, and Finance for money management.
 - Light and dark themes.
 
 ## Tech Stack
@@ -152,7 +154,7 @@ while still writing through their feature repositories.
 - Finance budget allocation is managed from the account nodes view, while the
   main Finance tab focuses on entry and the recent timeline.
 - Prayer tracking uses a 05:00 local-time boundary for its active day.
-- Prayer history uses a gray-to-green completion scale: 0 is gray, 1 is red,
+- Prayer history uses a dark-gray-to-green completion scale: 0 is dark gray, 1 is red,
   then orange, amber, soft green, and green at 5.
 - Errors use the shared `AppError` model. User-facing messages are sanitized and third-party/backend exceptions should be converted at repository or service boundaries.
 - The current widget test covers the standardized login screen. Expand it as auth and onboarding flows evolve.

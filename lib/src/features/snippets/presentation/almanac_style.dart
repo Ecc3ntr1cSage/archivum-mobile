@@ -10,6 +10,8 @@ class AlmanacColors {
   static const primarySoft = Color(0xFFFF80AA);
   static const secondary = Color(0xFF00FFCC);
   static const tertiary = Color(0xFFFFE04A);
+  static const accountAction = Color(0xFF268A5E);
+  static const indexAction = Color(0xFFE87B3E);
   static const foreground = Color(0xFFE8E0F0);
   static const muted = Color(0xFFA098B0);
   static const outline = Color(0xFF302840);

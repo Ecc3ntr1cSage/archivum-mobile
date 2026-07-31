@@ -709,7 +709,7 @@ class _Header extends StatelessWidget {
         const SizedBox(width: 12),
         const Expanded(
           child: Text(
-            'ARCHIVUM',
+            'Finance',
             style: TextStyle(
               color: _FinanceColors.primary,
               fontSize: 22,

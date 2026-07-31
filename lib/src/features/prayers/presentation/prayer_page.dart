@@ -344,7 +344,7 @@ class _PrayerHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'ARCHIVUM',
+                  'Prayer Log',
                   style: TextStyle(
                     color: _PrayerColors.primarySoft,
                     fontSize: 24,

@@ -331,7 +331,7 @@ class _AddCredentialPageState extends ConsumerState<AddCredentialPage> {
             child: SafeArea(
               child: ElevatedButton.icon(
                 onPressed: _isLoading ? null : _saveCredential,
-                style: almanacCommitButtonStyle(AlmanacColors.secondary),
+                style: almanacCommitButtonStyle(AlmanacColors.accountAction),
                 icon: _isLoading
                     ? const SizedBox(
                         width: 18,

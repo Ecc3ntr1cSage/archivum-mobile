@@ -213,7 +213,7 @@ class _AddIndexPageState extends ConsumerState<AddIndexPage> {
             child: SafeArea(
               child: ElevatedButton.icon(
                 onPressed: _isSaving ? null : _saveIndex,
-                style: almanacCommitButtonStyle(AlmanacColors.tertiary),
+                style: almanacCommitButtonStyle(AlmanacColors.indexAction),
                 icon: _isSaving
                     ? const SizedBox(
                         width: 18,
