@@ -173,6 +173,9 @@ These tables and RPCs are referenced directly in the current codebase and should
 
 - `get_insights`
   - Returns summary insight data for the insights feature
+  - Must aggregate the current `notes`, `credentials`, `indexes`, `index_items`,
+    `prayers`, and `tags` tables; the retired `quotes` table is not part of the
+    schema
 
 - `get_activity_last_7_days`
   - Returns recent activity counts for the home/dashboard experience

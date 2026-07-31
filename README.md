@@ -78,7 +78,7 @@ The app loads `.env` during startup before initializing Supabase. It will not ru
 
 Create and configure the Supabase project before using the app. The client expects authenticated, user-scoped access to the app's data tables and RPC functions used by the dashboard and insights.
 
-The exact schema, table relationships, column contracts, RPC names, and domain rules are maintained in [AGENTS.md](AGENTS.md). Keep that document aligned with the backend whenever the data model changes.
+The exact schema, table relationships, column contracts, RPC names, and domain rules are maintained in [AGENTS.md](AGENTS.md). Keep that document aligned with the backend whenever the data model changes. The `get_insights` RPC must target the current schema; it must not reference the retired `quotes` table.
 
 For a secure setup:
 
