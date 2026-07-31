@@ -47,7 +47,7 @@ This file is the source of truth for future Codex sessions working in this repos
   - `insights/`: analytics and derived summaries.
   - `notes/`: note CRUD.
   - `prayers/`: daily prayer tracking.
-  - `snippets/`: Almanac archive over notes, credentials, and indexes, plus
+  - `almanac/`: Almanac archive over notes, credentials, and indexes, plus
     shared Almanac visual primitives used by related insert screens.
 
 - `assets/`
@@ -66,7 +66,7 @@ This file is the source of truth for future Codex sessions working in this repos
 - Repositories live under `lib/src/features/*/data/` and are usually exposed through providers in `lib/src/core/providers/`.
 - List-fetching UI should consume feature list `FutureProvider`s; keep repository calls and async loading/error state out of pages where a provider exists.
 - The UI is feature-oriented, with domain models kept close to their features.
-- `snippets` is not its own storage model; it aggregates multiple content types.
+- `almanac` is not its own storage model; it aggregates multiple content types.
 - Almanac insert flows still live with their owning features:
   `notes/presentation/add_note_page.dart`,
   `accounts/presentation/add_credential_page.dart`, and

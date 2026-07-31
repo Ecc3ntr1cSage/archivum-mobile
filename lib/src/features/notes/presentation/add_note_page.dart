@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/providers/note_repository_provider.dart';
-import '../../snippets/presentation/almanac_style.dart';
+import '../../almanac/presentation/almanac_style.dart';
 import '../domain/note.dart';
 
 class AddNotePage extends ConsumerStatefulWidget {

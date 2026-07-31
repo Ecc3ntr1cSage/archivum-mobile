@@ -8,7 +8,7 @@ import '../features/home/presentation/home_page.dart';
 import '../features/indexes/presentation/add_index_page.dart';
 import '../features/notes/presentation/add_note_page.dart';
 import '../features/prayers/presentation/prayer_page.dart';
-import '../features/snippets/presentation/snippets_page.dart';
+import '../features/almanac/presentation/almanac_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -23,7 +23,7 @@ class _AppShellState extends State<AppShell> {
 
   final List<Widget> _pages = const [
     HomePage(),
-    SnippetsPage(),
+    AlmanacPage(),
     SizedBox.shrink(),
     PrayerPage(),
     FinancePage(),

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/providers/index_repository_provider.dart';
-import '../../../core/providers/snippet_repository_provider.dart';
+import '../../../core/providers/almanac_repository_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../domain/index_item.dart';
 

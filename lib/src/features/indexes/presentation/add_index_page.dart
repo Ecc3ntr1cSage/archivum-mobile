@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/providers/index_repository_provider.dart';
-import '../../snippets/presentation/almanac_style.dart';
+import '../../almanac/presentation/almanac_style.dart';
 import '../domain/index_item.dart';
 
 class AddIndexPage extends ConsumerStatefulWidget {

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/providers/account_repository_provider.dart';
-import '../../../core/providers/snippet_repository_provider.dart';
+import '../../../core/providers/almanac_repository_provider.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/presentation/account_detail_page.dart';
 import '../../accounts/presentation/add_credential_page.dart';
@@ -17,14 +17,14 @@ import 'almanac_style.dart';
 
 enum _AlmanacTab { notes, accounts, indexes }
 
-class SnippetsPage extends ConsumerStatefulWidget {
-  const SnippetsPage({super.key});
+class AlmanacPage extends ConsumerStatefulWidget {
+  const AlmanacPage({super.key});
 
   @override
-  ConsumerState<SnippetsPage> createState() => _SnippetsPageState();
+  ConsumerState<AlmanacPage> createState() => _AlmanacPageState();
 }
 
-class _SnippetsPageState extends ConsumerState<SnippetsPage> {
+class _AlmanacPageState extends ConsumerState<AlmanacPage> {
   final TextEditingController _searchController = TextEditingController();
   _AlmanacTab _selectedTab = _AlmanacTab.accounts;
   String _searchQuery = '';

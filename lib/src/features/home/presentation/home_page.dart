@@ -9,7 +9,7 @@ import '../../../core/errors/app_error.dart';
 import '../../../core/providers/account_repository_provider.dart';
 import '../../../core/providers/activity_provider.dart';
 import '../../../core/providers/insight_provider.dart';
-import '../../../core/providers/snippet_repository_provider.dart';
+import '../../../core/providers/almanac_repository_provider.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../accounts/presentation/add_credential_page.dart';
 import '../../auth/data/auth_repository.dart';

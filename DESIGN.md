@@ -140,7 +140,7 @@ The dark theme is well-defined but some screens (Register, AddCredential, Insigh
 - **Activity chart**: The custom painter is good. Add a **mount animation** on first load (chart slides up / draws in). The data dots should be slightly larger.
 - **Overall spacing**: The current 100px bottom padding is generous. Maintain good whitespace but ensure the bento cards don't feel lost.
 
-### 3.3 Almanac (Snippets/Notes/Accounts/Indexes)
+### 3.3 Almanac (Notes, Accounts, Indexes)
 
 **Current state**: Tabbed view with search, card-based list items with consistent `_SurfaceCard` pattern.
 
