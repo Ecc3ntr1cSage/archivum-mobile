@@ -1,699 +1,541 @@
-import 'dart:math' show max;
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/errors/app_error.dart';
 import '../../../core/providers/financial_insight_provider.dart';
 import '../domain/financial_insight_data.dart';
+import 'insight_design.dart';
 
 class FinancialInsightPage extends ConsumerWidget {
   const FinancialInsightPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final clr = theme.colorScheme;
-    final bgColor = isDark ? const Color(0xFF191121) : const Color(0xFFF7F6F8);
-    final primaryText = isDark ? Colors.white : Colors.black87;
-
-    final dataAsync = ref.watch(financialInsightDataProvider);
+    final palette = InsightPalette.of(context);
+    final insightAsync = ref.watch(financialInsightDataProvider);
 
     return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: bgColor.withValues(alpha: 0.85),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF10B981).withValues(alpha: 0.12),
+      backgroundColor: palette.background,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+          child: Column(
+            children: [
+              InsightTopBar(
+                palette: palette,
+                title: 'Financial insights',
+                onBack: () => Navigator.pop(context),
+                onRefresh: () => ref.invalidate(financialInsightDataProvider),
               ),
-              child: const Icon(Icons.arrow_back, color: Color(0xFF10B981)),
-            ),
-          ),
-        ),
-        title: Text(
-          'Financial Insights',
-          style: TextStyle(
-            color: primaryText,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () => ref.invalidate(financialInsightDataProvider),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+              const SizedBox(height: 18),
+              Expanded(
+                child: insightAsync.when(
+                  loading: () => Center(
+                    child: CircularProgressIndicator(
+                      color: palette.sage,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  error: (error, stack) => _FinancialError(
+                    palette: palette,
+                    message: AppError.from(error).message,
+                    onRetry: () => ref.invalidate(financialInsightDataProvider),
+                  ),
+                  data: (data) => _FinancialBody(data: data, palette: palette),
                 ),
-                child: const Icon(Icons.refresh, color: Color(0xFF10B981)),
               ),
-            ),
-          ),
-        ],
-      ),
-      body: dataAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline, color: clr.error, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  'Failed to load financial data',
-                  style: TextStyle(
-                    color: primaryText,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  AppError.from(error).message,
-                  style: TextStyle(
-                    color: primaryText.withValues(alpha: 0.6),
-                    fontSize: 12,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => ref.invalidate(financialInsightDataProvider),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
-                ),
-              ],
-            ),
+            ],
           ),
         ),
-        data: (data) => _FinancialBody(data: data),
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Body
-// ─────────────────────────────────────────────────────────────────────────────
+class _FinancialError extends StatelessWidget {
+  const _FinancialError({
+    required this.palette,
+    required this.message,
+    required this.onRetry,
+  });
 
-class _FinancialBody extends StatelessWidget {
-  final FinancialInsightData data;
-  const _FinancialBody({required this.data});
-
-  static const _green = Color(0xFF10B981);
-  static const _red = Color(0xFFEF4444);
+  final InsightPalette palette;
+  final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryText = isDark ? Colors.white : Colors.black87;
-    final secondaryText = isDark ? Colors.grey[400]! : Colors.grey[600]!;
-    final cardBg = isDark ? const Color(0xFF1E1A2E) : Colors.white;
-    final surfaceBg = isDark
-        ? const Color(0xFF191121)
-        : const Color(0xFFF7F6F8);
-
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+    return Center(
+      child: InsightSurface(
+        palette: palette,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Hero balance card
-            _buildBalanceHero(isDark, primaryText, secondaryText),
+            Icon(Icons.query_stats_rounded, color: palette.sage, size: 34),
             const SizedBox(height: 16),
-            // ── Income / Expense row
-            _buildIncomeExpenseRow(isDark, primaryText, secondaryText, cardBg),
-            const SizedBox(height: 20),
-            // ── Monthly bar chart
-            if (data.monthlyTrend.isNotEmpty) ...[
-              _buildSectionLabel(
-                Icons.bar_chart_rounded,
-                'Monthly Trend',
-                primaryText,
+            Text(
+              'No numbers to show',
+              style: TextStyle(
+                color: palette.ink,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(height: 12),
-              _buildBarChart(
-                isDark,
-                primaryText,
-                secondaryText,
-                cardBg,
-                surfaceBg,
+            ),
+            const SizedBox(height: 7),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: palette.muted,
+                fontSize: 12,
+                height: 1.45,
               ),
-              const SizedBox(height: 20),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.tonalIcon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 17),
+              label: const Text('Try again'),
+              style: FilledButton.styleFrom(
+                foregroundColor: palette.sage,
+                backgroundColor: palette.mint,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FinancialBody extends StatelessWidget {
+  const _FinancialBody({required this.data, required this.palette});
+
+  final FinancialInsightData data;
+  final InsightPalette palette;
+
+  static const _income = Color(0xFF5F9E88);
+  static const _expense = Color(0xFFC87558);
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 36),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InsightReveal(index: 0, child: _buildIntro()),
+          const SizedBox(height: 26),
+          InsightReveal(index: 1, child: _buildBalanceHero()),
+          const SizedBox(height: 18),
+          InsightReveal(index: 2, child: _buildSummaryMetrics()),
+          const SizedBox(height: 28),
+          InsightReveal(index: 3, child: _buildTrendSection()),
+          const SizedBox(height: 28),
+          InsightReveal(index: 4, child: _buildExpenseSection()),
+          const SizedBox(height: 28),
+          InsightReveal(index: 5, child: _buildIncomeSection()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIntro() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InsightEyebrow(label: 'FINANCE / 02', palette: palette),
+        const SizedBox(height: 14),
+        Text(
+          'Money, in\nproportion.',
+          style: TextStyle(
+            color: palette.ink,
+            fontSize: 38,
+            height: 0.98,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.8,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'A quiet read on the movement behind your everyday choices.',
+          style: TextStyle(
+            color: palette.muted,
+            fontSize: 14,
+            height: 1.45,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBalanceHero() {
+    final positive = data.totalBalance >= 0;
+    final accent = positive ? _income : _expense;
+    return InsightSurface(
+      palette: palette,
+      padding: const EdgeInsets.all(5),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(25),
+          gradient: LinearGradient(
+            colors: [
+              palette.sage.withValues(alpha: palette.isDark ? 0.3 : 0.15),
+              palette.surface,
             ],
-            // ── Tag breakdowns
-            _buildSectionLabel(
-              Icons.sell_outlined,
-              'Top Expense Categories',
-              primaryText,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'NET POSITION',
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                InsightPill(
+                  palette: palette,
+                  label: positive ? 'IN BALANCE' : 'REVIEW',
+                  color: accent,
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            _buildTagBreakdown(
-              isDark,
-              primaryText,
-              secondaryText,
-              cardBg,
-              items: data.topExpenseTags,
-              accent: _red,
-              total: data.totalExpense,
-              emptyLabel: 'No expenses recorded yet.',
+            const SizedBox(height: 17),
+            Text(
+              _formatCurrency(data.totalBalance),
+              style: TextStyle(
+                color: accent,
+                fontSize: 40,
+                height: 1,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -1.8,
+              ),
             ),
-            const SizedBox(height: 20),
-            _buildSectionLabel(
-              Icons.trending_up_rounded,
-              'Top Income Sources',
-              primaryText,
+            const SizedBox(height: 14),
+            Container(height: 1, color: palette.hairline),
+            const SizedBox(height: 13),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${data.totalTransactions} posted transactions',
+                  style: TextStyle(color: palette.muted, fontSize: 11),
+                ),
+                Icon(Icons.north_east_rounded, color: accent, size: 17),
+              ],
             ),
-            const SizedBox(height: 12),
-            _buildTagBreakdown(
-              isDark,
-              primaryText,
-              secondaryText,
-              cardBg,
-              items: data.topIncomeTags,
-              accent: _green,
-              total: data.totalIncome,
-              emptyLabel: 'No income recorded yet.',
-            ),
-            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
-  // ── Balance Hero ──────────────────────────────────────────────────────────
-
-  Widget _buildBalanceHero(
-    bool isDark,
-    Color primaryText,
-    Color secondaryText,
-  ) {
-    final isPositive = data.totalBalance >= 0;
-    final balanceColor = isPositive ? _green : _red;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [const Color(0xFF1D2D3A), const Color(0xFF15202B)]
-              : [const Color(0xFF0F2027), const Color(0xFF2C5364)],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet_outlined,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'NET BALANCE',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                _formatCurrency(data.totalBalance.abs()),
-                style: TextStyle(
-                  color: balanceColor,
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Icon(
-                  isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                  color: balanceColor,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            isPositive ? 'You\'re in the green' : 'Spending exceeds income',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.1)),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _heroStat('TOTAL TXN', '${data.totalTransactions}', Colors.white),
-              _heroStat('IN', '${data.incomeCount}', _green),
-              _heroStat('OUT', '${data.expenseCount}', _red),
-            ],
-          ),
-        ],
-      ),
+  Widget _buildSummaryMetrics() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final income = InsightMetricTile(
+          palette: palette,
+          label: 'INCOME',
+          value: _formatCurrency(data.totalIncome),
+          accent: _income,
+          icon: Icons.arrow_downward_rounded,
+        );
+        final expense = InsightMetricTile(
+          palette: palette,
+          label: 'EXPENSE',
+          value: _formatCurrency(data.totalExpense),
+          accent: _expense,
+          icon: Icons.arrow_upward_rounded,
+        );
+        return constraints.maxWidth < 360
+            ? Column(children: [income, const SizedBox(height: 10), expense])
+            : Row(
+                children: [
+                  Expanded(child: income),
+                  const SizedBox(width: 10),
+                  Expanded(child: expense),
+                ],
+              );
+      },
     );
   }
 
-  Widget _heroStat(String label, String value, Color valueColor) {
+  Widget _buildTrendSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.8,
-          ),
+        InsightSectionHeader(
+          palette: palette,
+          eyebrow: '01 / PULSE',
+          title: 'Monthly movement',
+          icon: Icons.show_chart_rounded,
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            color: valueColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        const SizedBox(height: 12),
+        InsightSurface(palette: palette, child: _buildChart()),
       ],
     );
   }
 
-  // ── Income / Expense Row ──────────────────────────────────────────────────
-
-  Widget _buildIncomeExpenseRow(
-    bool isDark,
-    Color primaryText,
-    Color secondaryText,
-    Color cardBg,
-  ) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildSummaryCard(
-            isDark: isDark,
-            primaryText: primaryText,
-            secondaryText: secondaryText,
-            cardBg: cardBg,
-            label: 'TOTAL INCOME',
-            value: _formatCurrency(data.totalIncome),
-            icon: Icons.trending_up_rounded,
-            accent: _green,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildSummaryCard(
-            isDark: isDark,
-            primaryText: primaryText,
-            secondaryText: secondaryText,
-            cardBg: cardBg,
-            label: 'TOTAL EXPENSE',
-            value: _formatCurrency(data.totalExpense),
-            icon: Icons.trending_down_rounded,
-            accent: _red,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryCard({
-    required bool isDark,
-    required Color primaryText,
-    required Color secondaryText,
-    required Color cardBg,
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color accent,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.15)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: accent, size: 16),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: secondaryText,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: TextStyle(
-              color: accent,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Bar Chart ─────────────────────────────────────────────────────────────
-
-  Widget _buildBarChart(
-    bool isDark,
-    Color primaryText,
-    Color secondaryText,
-    Color cardBg,
-    Color surfaceBg,
-  ) {
-    final months = data.monthlyTrend;
-    // Show up to last 6 months
-    final shown = months.length > 6
-        ? months.sublist(months.length - 6)
-        : months;
-    final maxVal = shown.fold<double>(
+  Widget _buildChart() {
+    final months = data.monthlyTrend.length > 6
+        ? data.monthlyTrend.sublist(data.monthlyTrend.length - 6)
+        : data.monthlyTrend;
+    if (months.isEmpty) {
+      return InsightEmptyState(
+        palette: palette,
+        label: 'Your first transaction will start the trend line.',
+      );
+    }
+    final maxValue = months.fold<double>(
       0,
-      (prev, m) => max(prev, max(m.income, m.expense)),
+      (current, month) =>
+          math.max(current, math.max(month.income, month.expense)),
     );
-    const chartHeight = 100.0;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
+    return Column(
+      children: [
+        SizedBox(
+          height: 156,
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
-            children: shown.map((m) {
-              final incomeH = maxVal > 0
-                  ? (m.income / maxVal) * chartHeight
-                  : 0.0;
-              final expenseH = maxVal > 0
-                  ? (m.expense / maxVal) * chartHeight
-                  : 0.0;
+            children: months.map((month) {
+              final incomeHeight = maxValue == 0
+                  ? 3.0
+                  : (month.income / maxValue * 118).clamp(3.0, 118.0);
+              final expenseHeight = maxValue == 0
+                  ? 3.0
+                  : (month.expense / maxValue * 118).clamp(3.0, 118.0);
               return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      SizedBox(
-                        height: chartHeight,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                // Income bar
-                                Container(
-                                  width: 8,
-                                  height: incomeH.clamp(2.0, chartHeight),
-                                  decoration: BoxDecoration(
-                                    color: _green,
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(3),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                // Expense bar
-                                Container(
-                                  width: 8,
-                                  height: expenseH.clamp(2.0, chartHeight),
-                                  decoration: BoxDecoration(
-                                    color: _red.withValues(alpha: 0.8),
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(3),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            width: 9,
+                            height: incomeHeight,
+                            decoration: BoxDecoration(
+                              color: _income,
+                              borderRadius: BorderRadius.circular(7),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 3),
+                          Container(
+                            width: 9,
+                            height: expenseHeight,
+                            decoration: BoxDecoration(
+                              color: _expense.withValues(alpha: 0.78),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        m.monthLabel,
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: secondaryText,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      month.monthLabel,
+                      style: TextStyle(
+                        color: palette.muted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               );
             }).toList(),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _legendDot(_green),
-              const SizedBox(width: 4),
-              Text(
-                'Income',
-                style: TextStyle(fontSize: 11, color: secondaryText),
-              ),
-              const SizedBox(width: 16),
-              _legendDot(_red),
-              const SizedBox(width: 4),
-              Text(
-                'Expense',
-                style: TextStyle(fontSize: 11, color: secondaryText),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _legend(_income, 'Income'),
+            const SizedBox(width: 18),
+            _legend(_expense, 'Expense'),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _legendDot(Color c) => Container(
-    width: 10,
-    height: 10,
-    decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2)),
-  );
+  Widget _legend(Color color, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 7),
+        Text(
+          label,
+          style: TextStyle(
+            color: palette.muted,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
 
-  // ── Tag Breakdown ─────────────────────────────────────────────────────────
+  Widget _buildExpenseSection() {
+    return _buildTagSection(
+      eyebrow: '02 / OUTFLOW',
+      title: 'Where it leaves',
+      icon: Icons.arrow_upward_rounded,
+      items: data.topExpenseTags,
+      accent: _expense,
+      total: data.totalExpense,
+      emptyLabel: 'No expenses recorded in this period.',
+    );
+  }
 
-  Widget _buildTagBreakdown(
-    bool isDark,
-    Color primaryText,
-    Color secondaryText,
-    Color cardBg, {
+  Widget _buildIncomeSection() {
+    return _buildTagSection(
+      eyebrow: '03 / INFLOW',
+      title: 'Where it enters',
+      icon: Icons.arrow_downward_rounded,
+      items: data.topIncomeTags,
+      accent: _income,
+      total: data.totalIncome,
+      emptyLabel: 'No income recorded in this period.',
+    );
+  }
+
+  Widget _buildTagSection({
+    required String eyebrow,
+    required String title,
+    required IconData icon,
     required List<TagBreakdown> items,
     required Color accent,
     required double total,
     required String emptyLabel,
   }) {
-    if (items.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Text(
-          emptyLabel,
-          style: TextStyle(color: secondaryText, fontSize: 13),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        children: items.map((item) {
-          final pct = total > 0 ? item.amount / total : 0.0;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: accent,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          item.tag,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: primaryText,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          _formatCurrency(item.amount),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: accent,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${(pct * 100).toStringAsFixed(0)}%',
-                          style: TextStyle(fontSize: 11, color: secondaryText),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: pct,
-                    minHeight: 4,
-                    backgroundColor: accent.withValues(alpha: 0.1),
-                    valueColor: AlwaysStoppedAnimation<Color>(accent),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  // ── Section label ─────────────────────────────────────────────────────────
-
-  Widget _buildSectionLabel(IconData icon, String label, Color primaryText) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF10B981), size: 20),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(
-            color: primaryText,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+        InsightSectionHeader(
+          palette: palette,
+          eyebrow: eyebrow,
+          title: title,
+          icon: icon,
+        ),
+        const SizedBox(height: 12),
+        InsightSurface(
+          palette: palette,
+          child: items.isEmpty
+              ? InsightEmptyState(palette: palette, label: emptyLabel)
+              : Column(
+                  children: items
+                      .map((item) => _buildTagRow(item, accent, total))
+                      .toList(),
+                ),
         ),
       ],
     );
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  Widget _buildTagRow(TagBreakdown item, Color accent, double total) {
+    final ratio = total > 0 ? (item.amount / total).clamp(0.0, 1.0) : 0.0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 17),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.tag,
+                  style: TextStyle(
+                    color: palette.ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                _formatCurrency(item.amount),
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${(ratio * 100).round()}%',
+                style: TextStyle(
+                  color: palette.muted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: Stack(
+              children: [
+                Container(height: 6, color: accent.withValues(alpha: 0.12)),
+                FractionallySizedBox(
+                  widthFactor: ratio,
+                  child: Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${item.count} transaction${item.count == 1 ? '' : 's'}',
+            style: TextStyle(color: palette.muted, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
 
   String _formatCurrency(double amount) {
-    if (amount >= 1000000) {
-      return '\$${(amount / 1000000).toStringAsFixed(2)}M';
-    } else if (amount >= 1000) {
-      return '\$${(amount / 1000).toStringAsFixed(1)}k';
+    final absolute = amount.abs();
+    final prefix = amount < 0 ? r'-$' : r'$';
+    if (absolute >= 1000000) {
+      return '$prefix${(absolute / 1000000).toStringAsFixed(2)}M';
     }
-    return '\$${amount.toStringAsFixed(2)}';
+    if (absolute >= 1000) {
+      return '$prefix${(absolute / 1000).toStringAsFixed(1)}k';
+    }
+    return '$prefix${absolute.toStringAsFixed(2)}';
   }
 }

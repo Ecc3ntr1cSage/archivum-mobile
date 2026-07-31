@@ -1,1083 +1,732 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/errors/app_error.dart';
 import '../../../core/providers/insight_provider.dart';
 import '../domain/insight_data.dart';
 import 'financial_insight_page.dart';
+import 'insight_design.dart';
 
 class InsightPage extends ConsumerWidget {
   const InsightPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final clr = theme.colorScheme;
-
-    final bgColor = isDark ? const Color(0xFF191121) : const Color(0xFFF7F6F8);
-    final primaryText = isDark ? Colors.white : Colors.black87;
-
+    final palette = InsightPalette.of(context);
     final insightAsync = ref.watch(insightDataProvider);
 
     return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: bgColor.withValues(alpha: 0.8),
-        elevation: 0,
-        centerTitle: true,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: clr.primary.withValues(alpha: 0.1),
+      backgroundColor: palette.background,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+          child: Column(
+            children: [
+              InsightTopBar(
+                palette: palette,
+                title: 'Analytics',
+                onBack: () => Navigator.pop(context),
+                onRefresh: () => ref.invalidate(insightDataProvider),
               ),
-              child: Icon(Icons.arrow_back, color: clr.primary),
-            ),
-          ),
-        ),
-        title: Text(
-          'Analytics',
-          style: TextStyle(
-            color: primaryText,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () => ref.invalidate(insightDataProvider),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: clr.primary.withValues(alpha: 0.1),
+              const SizedBox(height: 18),
+              Expanded(
+                child: insightAsync.when(
+                  loading: () => Center(
+                    child: CircularProgressIndicator(
+                      color: palette.ember,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  error: (error, stack) => _InsightError(
+                    palette: palette,
+                    message: AppError.from(error).message,
+                    onRetry: () => ref.invalidate(insightDataProvider),
+                  ),
+                  data: (data) => _InsightBody(data: data, palette: palette),
                 ),
-                child: Icon(Icons.refresh, color: clr.primary),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
-      body: insightAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline, color: clr.error, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  'Failed to load insights',
-                  style: TextStyle(
-                    color: primaryText,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  AppError.from(error).message,
-                  style: TextStyle(
-                    color: primaryText.withValues(alpha: 0.6),
-                    fontSize: 12,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => ref.invalidate(insightDataProvider),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
-                ),
-              ],
+    );
+  }
+}
+
+class _InsightError extends StatelessWidget {
+  const _InsightError({
+    required this.palette,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final InsightPalette palette;
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: InsightSurface(
+        palette: palette,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded, color: palette.ember, size: 34),
+            const SizedBox(height: 16),
+            Text(
+              'The archive is quiet',
+              style: TextStyle(
+                color: palette.ink,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
+            const SizedBox(height: 7),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: palette.muted,
+                fontSize: 12,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.tonalIcon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 17),
+              label: const Text('Try again'),
+              style: FilledButton.styleFrom(
+                foregroundColor: palette.ember,
+                backgroundColor: palette.blush,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ],
         ),
-        data: (data) => _InsightBody(data: data),
       ),
     );
   }
 }
 
 class _InsightBody extends StatelessWidget {
+  const _InsightBody({required this.data, required this.palette});
+
   final InsightData data;
-  const _InsightBody({required this.data});
+  final InsightPalette palette;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final clr = theme.colorScheme;
-
-    final bgColor = isDark ? const Color(0xFF191121) : const Color(0xFFF7F6F8);
-    final cardColor = isDark
-        ? clr.primary.withValues(alpha: 0.05)
-        : Colors.grey[100];
-    final borderColor = clr.primary.withValues(alpha: 0.1);
-    final primaryText = isDark ? Colors.white : Colors.black87;
-    final Color secondaryText = isDark ? Colors.grey[400]! : Colors.grey[600]!;
-
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildNotesSection(
-              context,
-              clr,
-              isDark,
-              primaryText,
-              secondaryText,
-              cardColor,
-              borderColor,
-              bgColor,
-            ),
-            const SizedBox(height: 24),
-            _buildIndexRegistrySection(
-              clr,
-              primaryText,
-              secondaryText,
-              cardColor,
-              borderColor,
-            ),
-            const SizedBox(height: 24),
-            _buildFaithStatisticsSection(
-              clr,
-              isDark,
-              primaryText,
-              secondaryText,
-            ),
-            const SizedBox(height: 24),
-            _buildAccountSecuritySection(
-              context,
-              clr,
-              isDark,
-              primaryText,
-              secondaryText,
-              cardColor,
-              borderColor,
-            ),
-            const SizedBox(height: 24),
-            _buildFinancialRedirectCard(context, isDark, primaryText),
-            const SizedBox(height: 32),
-          ],
-        ),
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 36),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InsightReveal(index: 0, child: _buildIntro()),
+          const SizedBox(height: 26),
+          InsightReveal(index: 1, child: _buildArchiveOverview()),
+          const SizedBox(height: 28),
+          InsightReveal(index: 2, child: _buildNotesSection()),
+          const SizedBox(height: 28),
+          InsightReveal(index: 3, child: _buildIndexesSection()),
+          const SizedBox(height: 28),
+          InsightReveal(index: 4, child: _buildFaithSection()),
+          const SizedBox(height: 28),
+          InsightReveal(index: 5, child: _buildAccountsSection(context)),
+          const SizedBox(height: 28),
+          InsightReveal(index: 6, child: _buildFinanceLink(context)),
+        ],
       ),
     );
   }
 
-  // ─── Section Header ───────────────────────────────────────────
-  Widget _buildSectionHeader(
-    IconData icon,
-    String title,
-    Color iconColor,
-    Color textColor,
-  ) {
-    return Row(
-      children: [
-        Icon(icon, color: iconColor),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Notes ────────────────────────────────────────────────────
-  Widget _buildNotesSection(
-    BuildContext context,
-    ColorScheme clr,
-    bool isDark,
-    Color primaryText,
-    Color secondaryText,
-    Color? cardColor,
-    Color borderColor,
-    Color bgColor,
-  ) {
+  Widget _buildIntro() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(
-          Icons.auto_stories,
-          'Notes',
-          clr.primary,
-          primaryText,
+        InsightEyebrow(label: 'PRIVATE ARCHIVE / 01', palette: palette),
+        const SizedBox(height: 14),
+        Text(
+          'Your archive,\nin signal.',
+          style: TextStyle(
+            color: palette.ink,
+            fontSize: 38,
+            height: 0.98,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.8,
+          ),
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor),
-          ),
-          child: Column(
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'TOTAL NOTES',
-                        style: TextStyle(
-                          color: secondaryText,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${data.totalNotes}',
-                        style: TextStyle(
-                          color: primaryText,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: clr.primary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.analytics, color: clr.primary),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Sub Items
-              _buildNotesSubItem(
-                context: context,
-                title: 'Tag Breakdown',
-                count: '${data.totalNotes}',
-                color: clr.primary,
-                primaryText: primaryText,
-                isDark: isDark,
-                breakdownItems: data.noteTags,
-                breakdownTitle: 'Notes Tags Breakdown',
-              ),
-            ],
+        Text(
+          'A considered view of the things you have chosen to keep close.',
+          style: TextStyle(
+            color: palette.muted,
+            fontSize: 14,
+            height: 1.45,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildNotesSubItem({
-    required BuildContext context,
-    required String title,
-    required String count,
-    required Color color,
-    required Color primaryText,
-    required bool isDark,
-    required List<TagBreakdown> breakdownItems,
-    required String breakdownTitle,
-  }) {
-    final bgColor = isDark ? const Color(0xFF191121) : Colors.white;
-    return InkWell(
-      onTap: () =>
-          _showBreakdownSheet(context, breakdownTitle, breakdownItems, color),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.05)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
+  Widget _buildArchiveOverview() {
+    return InsightSurface(
+      palette: palette,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  'SAVED RECORDS',
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: primaryText,
+                    color: palette.muted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.4,
                   ),
                 ),
+                const SizedBox(height: 6),
                 Text(
-                  count,
+                  '${data.totalContent}',
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+                    color: palette.ink,
+                    fontSize: 38,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.5,
                   ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Across your personal archive',
+                  style: TextStyle(color: palette.muted, fontSize: 11),
                 ),
               ],
             ),
-            Row(
-              children: [
-                Text(
-                  'TAGS BREAKDOWN',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right, color: color, size: 16),
-              ],
-            ),
-          ],
-        ),
+          ),
+          InsightPill(
+            palette: palette,
+            label: 'LIVE VIEW',
+            color: palette.sage,
+          ),
+        ],
       ),
     );
   }
 
-  // ─── Index Registry ───────────────────────────────────────────
-  Widget _buildIndexRegistrySection(
-    ColorScheme clr,
-    Color primaryText,
-    Color secondaryText,
-    Color? cardColor,
-    Color borderColor,
-  ) {
+  Widget _buildNotesSection() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(
-          Icons.inventory_2,
-          'Index Registry',
-          clr.secondary,
-          primaryText,
+        InsightSectionHeader(
+          palette: palette,
+          eyebrow: '01 / MEMORY',
+          title: 'Notes',
+          icon: Icons.auto_stories_outlined,
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TOTAL INDEXES',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: secondaryText,
-                      ),
+        InsightSurface(
+          palette: palette,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${data.totalNotes}',
+                    style: TextStyle(
+                      color: palette.ember,
+                      fontSize: 34,
+                      height: 1,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1.2,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${data.totalIndexes}',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: primaryText,
-                      ),
+                  ),
+                  const SizedBox(width: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Text(
+                      'notes captured',
+                      style: TextStyle(color: palette.muted, fontSize: 12),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'TAG CONSTELLATION',
+                style: TextStyle(
+                  color: palette.muted,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'INDEX ITEMS',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: secondaryText,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${data.totalIndexItems}',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: primaryText,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              _buildNoteTags(),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  // ─── Faith Statistics ─────────────────────────────────────────
-  Widget _buildFaithStatisticsSection(
-    ColorScheme clr,
-    bool isDark,
-    Color primaryText,
-    Color secondaryText,
-  ) {
+  Widget _buildNoteTags() {
+    if (data.noteTags.isEmpty) {
+      return InsightEmptyState(
+        palette: palette,
+        label: 'No note tags yet. Your first thread is waiting.',
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: data.noteTags
+          .take(8)
+          .map(
+            (item) => InsightPill(
+              palette: palette,
+              label: '${item.tag}  ${item.count}',
+              color: palette.ember,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildIndexesSection() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(
-          Icons.volunteer_activism,
-          'Faith Statistics',
-          clr.primary,
-          primaryText,
+        InsightSectionHeader(
+          palette: palette,
+          eyebrow: '02 / REGISTRY',
+          title: 'Index registry',
+          icon: Icons.inventory_2_outlined,
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(20),
+        InsightSurface(
+          palette: palette,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 360;
+              final children = [
+                InsightMetricTile(
+                  palette: palette,
+                  label: 'INDEXES',
+                  value: '${data.totalIndexes}',
+                  accent: palette.sage,
+                  icon: Icons.layers_outlined,
+                ),
+                InsightMetricTile(
+                  palette: palette,
+                  label: 'ITEMS',
+                  value: '${data.totalIndexItems}',
+                  accent: palette.ember,
+                  icon: Icons.format_list_bulleted_rounded,
+                ),
+              ];
+              return compact
+                  ? Column(
+                      children: [
+                        children[0],
+                        const SizedBox(height: 10),
+                        children[1],
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: children[0]),
+                        const SizedBox(width: 10),
+                        Expanded(child: children[1]),
+                      ],
+                    );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFaithSection() {
+    final progress = (data.completionRate / 100).clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InsightSectionHeader(
+          palette: palette,
+          eyebrow: '03 / RHYTHM',
+          title: 'Prayer practice',
+          icon: Icons.wb_sunny_outlined,
+        ),
+        const SizedBox(height: 12),
+        InsightSurface(
+          palette: palette,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 102,
+                height: 102,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 7,
+                      backgroundColor: palette.sage.withValues(alpha: 0.12),
+                      valueColor: AlwaysStoppedAnimation(palette.sage),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${(progress * 100).round()}%',
+                          style: TextStyle(
+                            color: palette.ink,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'complete',
+                          style: TextStyle(color: palette.muted, fontSize: 9),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${data.totalPrayers}',
+                      style: TextStyle(
+                        color: palette.sage,
+                        fontSize: 30,
+                        height: 1,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'prayers completed across ${data.totalPrayerDays} days',
+                      style: TextStyle(
+                        color: palette.muted,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 13),
+                    InsightPill(
+                      palette: palette,
+                      label: '${data.avgDailyPrayers.toStringAsFixed(1)} / DAY',
+                      color: palette.sage,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccountsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InsightSectionHeader(
+          palette: palette,
+          eyebrow: '04 / ACCESS',
+          title: 'Account security',
+          icon: Icons.shield_outlined,
+        ),
+        const SizedBox(height: 12),
+        InsightSurface(
+          palette: palette,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${data.totalAccounts} credentials stored',
+                      style: TextStyle(
+                        color: palette.ink,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    color: palette.ember,
+                    size: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'BY METHOD',
+                style: TextStyle(
+                  color: palette.muted,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (data.accountMethods.isEmpty)
+                InsightEmptyState(
+                  palette: palette,
+                  label: 'No credential methods recorded yet.',
+                )
+              else
+                ...data.accountMethods.map(
+                  (item) => InsightListRow(
+                    palette: palette,
+                    label: item.tag,
+                    value: '${item.count}',
+                    accent: palette.ember,
+                  ),
+                ),
+              if (data.ssoProviders.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'SSO PROVIDERS',
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...data.ssoProviders.map(
+                  (item) => InsightListRow(
+                    palette: palette,
+                    label: item.tag,
+                    value: '${item.count}',
+                    accent: palette.sage,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 3),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _showAccountBreakdown(context),
+                  icon: const Icon(Icons.arrow_outward_rounded, size: 15),
+                  label: const Text('View details'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: palette.ember,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFinanceLink(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const FinancialInsightPage()),
+        ),
+        borderRadius: BorderRadius.circular(30),
+        child: Ink(
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
             gradient: LinearGradient(
+              colors: [palette.ember, palette.ember.withValues(alpha: 0.75)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                clr.primary.withValues(alpha: 0.2),
-                clr.secondary.withValues(alpha: 0.1),
-              ],
             ),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: clr.primary.withValues(alpha: 0.2)),
+            boxShadow: [
+              BoxShadow(
+                color: palette.ember.withValues(alpha: 0.22),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildFaithStatItem(
-                'TOTAL PRAYERS',
-                _formatNumber(data.totalPrayers),
-                clr.primary,
-                secondaryText,
-              ),
-              Container(
-                width: 1,
-                height: 40,
-                color: clr.primary.withValues(alpha: 0.1),
-              ),
-              _buildFaithStatItem(
-                'AVG DAILY',
-                '${data.avgDailyPrayers}',
-                clr.primary,
-                secondaryText,
-              ),
-              Container(
-                width: 1,
-                height: 40,
-                color: clr.primary.withValues(alpha: 0.1),
-              ),
-              Column(
-                children: [
-                  Text(
-                    'STREAK',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: secondaryText,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        '${data.longestStreak}',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: clr.secondary,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.local_fire_department,
-                        color: clr.secondary,
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFaithStatItem(
-    String label,
-    String value,
-    Color valueColor,
-    Color secondaryText,
-  ) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: secondaryText,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: valueColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Account Security ─────────────────────────────────────────
-  Widget _buildAccountSecuritySection(
-    BuildContext context,
-    ColorScheme clr,
-    bool isDark,
-    Color primaryText,
-    Color secondaryText,
-    Color? cardColor,
-    Color borderColor,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildSectionHeader(
-          Icons.shield_outlined,
-          'Account Security',
-          clr.primary,
-          primaryText,
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'TOTAL ACCOUNTS',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: secondaryText,
-                          ),
-                        ),
-                        Text(
-                          '${data.totalAccounts}',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: primaryText,
-                          ),
-                        ),
-                      ],
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: clr.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () => _showAccountBreakdownSheet(context, clr),
-                      child: const Text(
-                        'VIEW DETAILS',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: borderColor),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'METHOD',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: clr.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ...data.accountMethods.map(
-                            (m) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _buildAccountRow(
-                                m.tag,
-                                '${m.count}',
-                                primaryText,
-                              ),
-                            ),
-                          ),
-                          if (data.accountMethods.isEmpty)
-                            Text(
-                              '—',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: primaryText,
-                              ),
-                            ),
-                        ],
+                    Text(
+                      'FINANCIAL LENS',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.5,
                       ),
                     ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'SSO PROVIDER',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: clr.secondary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ...data.ssoProviders.map(
-                            (p) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _buildAccountRow(
-                                p.tag,
-                                '${p.count}',
-                                primaryText,
-                              ),
-                            ),
-                          ),
-                          if (data.ssoProviders.isEmpty)
-                            Text(
-                              '—',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: primaryText,
-                              ),
-                            ),
-                        ],
+                    const SizedBox(height: 8),
+                    const Text(
+                      'See where your money is moving.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        height: 1.05,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
                       ),
                     ),
                   ],
                 ),
               ),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_outward_rounded,
+                  color: Colors.white,
+                  size: 19,
+                ),
+              ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildAccountRow(String label, String value, Color primaryText) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  void _showAccountBreakdown(BuildContext context) {
+    _showBreakdownSheet(
+      context,
+      title: 'Account breakdown',
+      subtitle: '${data.totalAccounts} credentials in your archive',
       children: [
-        Text(label, style: TextStyle(fontSize: 12, color: primaryText)),
         Text(
-          value,
+          'BY METHOD',
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: primaryText,
+            color: palette.muted,
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.4,
           ),
         ),
+        const SizedBox(height: 12),
+        ...data.accountMethods.map(
+          (item) => InsightListRow(
+            palette: palette,
+            label: item.tag,
+            value: '${item.count}',
+            accent: palette.ember,
+          ),
+        ),
+        if (data.ssoProviders.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            'SSO PROVIDERS',
+            style: TextStyle(
+              color: palette.muted,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...data.ssoProviders.map(
+            (item) => InsightListRow(
+              palette: palette,
+              label: item.tag,
+              value: '${item.count}',
+              accent: palette.sage,
+            ),
+          ),
+        ],
       ],
     );
   }
-
-  // ─── Financial Redirect Card ──────────────────────────────────
-  Widget _buildFinancialRedirectCard(
-    BuildContext context,
-    bool isDark,
-    Color primaryText,
-  ) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const FinancialInsightPage()),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF064E3B), Color(0xFF065F46)],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF10B981).withValues(alpha: 0.25),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.account_balance_wallet_outlined,
-                color: Color(0xFF6EE7B7),
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'FINANCIAL INSIGHTS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF6EE7B7),
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'Balance, income, expenses & trends',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.75),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.arrow_forward_ios,
-                color: Color(0xFF6EE7B7),
-                size: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Bottom Sheet Utilities ───────────────────────────────────
 
   void _showBreakdownSheet(
-    BuildContext context,
-    String title,
-    List<TagBreakdown> items,
-    Color accentColor,
-  ) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final sheetBg = isDark ? const Color(0xFF1E1529) : Colors.white;
-    final primaryText = isDark ? Colors.white : Colors.black87;
-    final secondaryText = isDark ? Colors.grey[400]! : Colors.grey[600]!;
-
-    showModalBottomSheet(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+  }) {
+    showModalBottomSheet<void>(
       context: context,
-      backgroundColor: sheetBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: secondaryText.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: primaryText,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (items.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'No data yet.',
-                  style: TextStyle(color: secondaryText, fontSize: 14),
-                ),
-              )
-            else
-              ...items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: accentColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            item.tag,
-                            style: TextStyle(fontSize: 14, color: primaryText),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        '${item.count}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: accentColor,
-                        ),
-                      ),
-                    ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        decoration: BoxDecoration(
+          color: palette.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: palette.hairline,
+                    borderRadius: BorderRadius.circular(99),
                   ),
                 ),
               ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAccountBreakdownSheet(BuildContext context, ColorScheme clr) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final sheetBg = isDark ? const Color(0xFF1E1529) : Colors.white;
-    final primaryText = isDark ? Colors.white : Colors.black87;
-    final secondaryText = isDark ? Colors.grey[400]! : Colors.grey[600]!;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: sheetBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: secondaryText.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Account Breakdown',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: primaryText,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Total: ${data.totalAccounts}',
-              style: TextStyle(fontSize: 14, color: secondaryText),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'BY METHOD',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: clr.primary,
-                letterSpacing: 1,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...data.accountMethods.map(
-              (m) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: clr.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          m.tag,
-                          style: TextStyle(fontSize: 14, color: primaryText),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      '${m.count}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: clr.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (data.ssoProviders.isNotEmpty) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 22),
               Text(
-                'SSO BREAKDOWN',
+                title,
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: clr.secondary,
-                  letterSpacing: 1,
+                  color: palette.ink,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.7,
                 ),
               ),
-              const SizedBox(height: 8),
-              ...data.ssoProviders.map(
-                (p) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: clr.secondary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            p.tag,
-                            style: TextStyle(fontSize: 14, color: primaryText),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        '${p.count}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: clr.secondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                style: TextStyle(color: palette.muted, fontSize: 12),
               ),
+              const SizedBox(height: 22),
+              ...children,
             ],
-            const SizedBox(height: 8),
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  // ─── Helpers ──────────────────────────────────────────────────
-
-  String _formatNumber(int number) {
-    if (number >= 1000) {
-      return '${(number / 1000).toStringAsFixed(number % 1000 == 0 ? 0 : 1)}k';
-    }
-    return '$number';
   }
 }

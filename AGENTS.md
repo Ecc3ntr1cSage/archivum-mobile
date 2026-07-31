@@ -45,6 +45,9 @@ This file is the source of truth for future Codex sessions working in this repos
     actions, and recent activity.
   - `indexes/`: general index/list records and child items.
   - `insights/`: analytics and derived summaries.
+    - Insight screens share the editorial visual primitives in
+      `presentation/insight_design.dart`; keep analytics and financial
+      insights aligned to that system when extending either page.
   - `notes/`: note CRUD.
   - `prayers/`: daily prayer tracking.
   - `almanac/`: Almanac archive over notes, credentials, and indexes, plus
