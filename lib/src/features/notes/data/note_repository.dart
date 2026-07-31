@@ -7,13 +7,30 @@ class SupabaseNoteRepository implements NoteRepository {
   final SupabaseClient client;
   SupabaseNoteRepository(this.client);
 
+  String _requireUserId() {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw AppError.auth('You must be signed in to manage notes.');
+    }
+    return userId;
+  }
+
+  String _scopedUserId(String? requestedUserId) {
+    final userId = _requireUserId();
+    if (requestedUserId != null && requestedUserId != userId) {
+      throw AppError.permission('You cannot access another user’s notes.');
+    }
+    return userId;
+  }
+
   @override
   Future<Note> createNote(Note note) async {
+    final userId = _requireUserId();
     final payload = {
       'title': note.title,
       'content': note.content,
       if (note.tag != null) 'tag': note.tag,
-      if (note.userId != null) 'user_id': note.userId,
+      'user_id': userId,
     };
 
     final response = await client
@@ -33,17 +50,20 @@ class SupabaseNoteRepository implements NoteRepository {
     if (note.id == null) {
       throw AppError.validation('Note ID is required for update.');
     }
+    final userId = _requireUserId();
 
     final payload = {
       'title': note.title,
       'content': note.content,
-      if (note.tag != null) 'tag': note.tag,
+      'tag': note.tag,
+      'color': note.color,
     };
 
     final response = await client
         .from('notes')
         .update(payload)
         .eq('id', note.id as Object)
+        .eq('user_id', userId)
         .select()
         .single();
     final result = _mapToNote(response);
@@ -55,7 +75,8 @@ class SupabaseNoteRepository implements NoteRepository {
 
   @override
   Future<void> deleteNote(String id) async {
-    await client.from('notes').delete().eq('id', id);
+    final userId = _requireUserId();
+    await client.from('notes').delete().eq('id', id).eq('user_id', userId);
     await client.from('activity_logs').insert({
       'activity_type': 'note_deleted',
     });
@@ -63,10 +84,12 @@ class SupabaseNoteRepository implements NoteRepository {
 
   @override
   Future<Note?> getNote(String id) async {
+    final userId = _requireUserId();
     final response = await client
         .from('notes')
         .select()
         .eq('id', id)
+        .eq('user_id', userId)
         .maybeSingle();
     if (response == null) return null;
     return _mapToNote(response);
@@ -74,10 +97,8 @@ class SupabaseNoteRepository implements NoteRepository {
 
   @override
   Future<List<Note>> listNotes({String? userId}) async {
-    var query = client.from('notes').select();
-    if (userId != null) {
-      query = query.eq('user_id', userId);
-    }
+    final scopedUserId = _scopedUserId(userId);
+    var query = client.from('notes').select().eq('user_id', scopedUserId);
     final response = await query.order('created_at', ascending: false);
     return (response as List).map((row) => _mapToNote(row)).toList();
   }

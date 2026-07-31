@@ -29,4 +29,21 @@ void main() {
     expect(error.message, 'Something went wrong. Please try again.');
     expect(errorMessage(StateError('database internals')), error.message);
   });
+
+  test('guardAppError converts failures at async boundaries', () async {
+    await expectLater(
+      guardAppError<void>(() async {
+        throw StateError('internal detail');
+      }),
+      throwsA(
+        isA<AppError>()
+            .having((error) => error.kind, 'kind', AppErrorKind.unknown)
+            .having(
+              (error) => error.message,
+              'message',
+              'Something went wrong. Please try again.',
+            ),
+      ),
+    );
+  });
 }

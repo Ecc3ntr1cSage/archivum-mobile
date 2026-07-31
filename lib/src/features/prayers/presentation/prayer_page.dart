@@ -7,6 +7,7 @@ import '../../../core/errors/app_error.dart';
 import '../data/prayer_repository.dart';
 import '../domain/prayer_day.dart';
 import 'prayer_history_page.dart';
+import 'prayer_intensity.dart';
 
 class PrayerPage extends StatefulWidget {
   const PrayerPage({super.key});
@@ -794,11 +795,11 @@ class _HistoryPreview extends StatelessWidget {
                   ),
                 ),
               ),
-              _LegendSwatch(alpha: 0.14),
+              _LegendSwatch(color: _HistoryColors.red),
               const SizedBox(width: 5),
-              _LegendSwatch(alpha: 0.44),
+              _LegendSwatch(color: _HistoryColors.amber),
               const SizedBox(width: 5),
-              _LegendSwatch(alpha: 1),
+              _LegendSwatch(color: _HistoryColors.green),
             ],
           ),
           const SizedBox(height: 16),
@@ -845,16 +846,7 @@ class _HistoryCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final alpha = switch (completedCount) {
-      null => 0.08,
-      0 => 0.12,
-      1 || 2 => 0.24,
-      3 || 4 => 0.54,
-      _ => 1.0,
-    };
-    final color = completedCount == null
-        ? _PrayerColors.surfaceHighest
-        : _PrayerColors.primary.withValues(alpha: alpha);
+    final color = PrayerIntensityColors.forCount(completedCount);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -866,7 +858,7 @@ class _HistoryCell extends StatelessWidget {
         boxShadow: completedCount == 5
             ? [
                 BoxShadow(
-                  color: _PrayerColors.primary.withValues(alpha: 0.42),
+                  color: PrayerIntensityColors.five.withValues(alpha: 0.42),
                   blurRadius: 8,
                 ),
               ]
@@ -877,9 +869,9 @@ class _HistoryCell extends StatelessWidget {
 }
 
 class _LegendSwatch extends StatelessWidget {
-  const _LegendSwatch({required this.alpha});
+  const _LegendSwatch({required this.color});
 
-  final double alpha;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -887,12 +879,12 @@ class _LegendSwatch extends StatelessWidget {
       width: 12,
       height: 12,
       decoration: BoxDecoration(
-        color: _PrayerColors.primary.withValues(alpha: alpha),
+        color: color,
         borderRadius: BorderRadius.circular(3),
-        boxShadow: alpha == 1
+        boxShadow: color == PrayerIntensityColors.five
             ? [
                 BoxShadow(
-                  color: _PrayerColors.primary.withValues(alpha: 0.45),
+                  color: PrayerIntensityColors.five.withValues(alpha: 0.45),
                   blurRadius: 5,
                 ),
               ]

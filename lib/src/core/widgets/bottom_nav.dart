@@ -192,51 +192,46 @@ class _ActionButton extends StatelessWidget {
 
     return Expanded(
       child: Center(
-        child: Transform.translate(
-          offset: const Offset(0, -9),
-          child: GestureDetector(
-            onTap: onTap,
-            behavior: HitTestBehavior.opaque,
-            child: Tooltip(
-              message: 'Add',
-              child: AnimatedContainer(
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Tooltip(
+            message: 'Add',
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: buttonColor,
+                border: Border.all(
+                  color: buttonBorder,
+                  width: isOpen ? 1.5 : 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isOpen ? 0.24 : 0.18),
+                    blurRadius: isOpen ? 20 : 14,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: theme.primary.withValues(
+                      alpha: isOpen ? 0.18 : 0.08,
+                    ),
+                    blurRadius: isOpen ? 18 : 10,
+                    spreadRadius: -4,
+                  ),
+                ],
+              ),
+              child: AnimatedRotation(
+                turns: isOpen ? 0.125 : 0,
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: buttonColor,
-                  border: Border.all(
-                    color: buttonBorder,
-                    width: isOpen ? 1.5 : 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isOpen ? 0.24 : 0.18,
-                      ),
-                      blurRadius: isOpen ? 20 : 14,
-                      offset: const Offset(0, 8),
-                    ),
-                    BoxShadow(
-                      color: theme.primary.withValues(
-                        alpha: isOpen ? 0.18 : 0.08,
-                      ),
-                      blurRadius: isOpen ? 18 : 10,
-                      spreadRadius: -4,
-                    ),
-                  ],
-                ),
-                child: AnimatedRotation(
-                  turns: isOpen ? 0.125 : 0,
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  child: Icon(
-                    isOpen ? Icons.close_rounded : Icons.add_rounded,
-                    color: iconColor,
-                    size: 24,
-                  ),
+                child: Icon(
+                  isOpen ? Icons.close_rounded : Icons.add_rounded,
+                  color: iconColor,
+                  size: 24,
                 ),
               ),
             ),

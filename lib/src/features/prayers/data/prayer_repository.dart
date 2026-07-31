@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/app_error.dart';
 import '../domain/prayer_day.dart';
 
 /// Returns the "active" prayer date.
@@ -8,8 +9,7 @@ import '../domain/prayer_day.dart';
 DateTime getActiveDate() {
   final now = DateTime.now();
   if (now.hour < 5) {
-    final yesterday = now.subtract(const Duration(days: 1));
-    return DateTime(yesterday.year, yesterday.month, yesterday.day);
+    return DateTime(now.year, now.month, now.day - 1);
   }
   return DateTime(now.year, now.month, now.day);
 }
@@ -18,6 +18,14 @@ class PrayerRepository {
   final SupabaseClient client;
   PrayerRepository(this.client);
 
+  String _requireUserId() {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw AppError.auth('You must be signed in to manage prayers.');
+    }
+    return userId;
+  }
+
   static String _formatDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
@@ -25,11 +33,13 @@ class PrayerRepository {
 
   /// Fetch prayer record for [date]. Returns null if none exists.
   Future<PrayerDay?> fetchPrayerDay(DateTime date) async {
+    final userId = _requireUserId();
     final dateStr = _formatDate(date);
     final res = await client
         .from('prayers')
         .select()
         .eq('date', dateStr)
+        .eq('user_id', userId)
         .maybeSingle();
     if (res == null) return null;
     return PrayerDay.fromMap(res);
@@ -37,13 +47,14 @@ class PrayerRepository {
 
   /// Fetch existing record for [date], or insert a blank one and return it.
   Future<PrayerDay> fetchOrCreatePrayerDay(DateTime date) async {
+    final userId = _requireUserId();
     final existing = await fetchPrayerDay(date);
     if (existing != null) return existing;
 
     final blank = PrayerDay(date: date);
     final inserted = await client
         .from('prayers')
-        .insert(blank.toInsertMap())
+        .insert({...blank.toInsertMap(), 'user_id': userId})
         .select()
         .single();
     return PrayerDay.fromMap(inserted);
@@ -51,10 +62,17 @@ class PrayerRepository {
 
   /// Update a single prayer column for the record with [id].
   Future<PrayerDay> updatePrayer(int id, String prayerName, bool value) async {
+    final userId = _requireUserId();
+    const allowedPrayerNames = {'fajr', 'dhuhr', 'asr', 'maghrib', 'isha'};
+    final column = prayerName.toLowerCase();
+    if (!allowedPrayerNames.contains(column)) {
+      throw AppError.validation('Unknown prayer name.');
+    }
     final updated = await client
         .from('prayers')
-        .update({prayerName.toLowerCase(): value})
+        .update({column: value})
         .eq('id', id)
+        .eq('user_id', userId)
         .select()
         .single();
     await client.from('activity_logs').insert({
@@ -65,6 +83,7 @@ class PrayerRepository {
 
   /// Fetch all prayer records for [year]/[month].
   Future<List<PrayerDay>> fetchPrayersForMonth(int year, int month) async {
+    final userId = _requireUserId();
     final lastDay = DateTime(year, month + 1, 0).day;
     final from =
         '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-01';
@@ -74,6 +93,7 @@ class PrayerRepository {
     final res = await client
         .from('prayers')
         .select()
+        .eq('user_id', userId)
         .gte('date', from)
         .lte('date', to)
         .order('date');
@@ -85,7 +105,8 @@ class PrayerRepository {
 
   /// Returns (totalPrayersCompleted, totalDaysRecorded) across all time.
   Future<(int, int)> fetchAllTimeStats() async {
-    final res = await client.from('prayers').select();
+    final userId = _requireUserId();
+    final res = await client.from('prayers').select().eq('user_id', userId);
     final days = (res as List)
         .map((m) => PrayerDay.fromMap(m as Map<String, dynamic>))
         .toList();

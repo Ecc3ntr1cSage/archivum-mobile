@@ -1,4 +1,4 @@
-package com.example.archivum_mobile
+package com.archivum.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

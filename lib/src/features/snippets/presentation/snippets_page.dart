@@ -627,9 +627,7 @@ class _IndexCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completed = index.items.where((item) => item.isChecked).length;
     final total = index.items.length;
-    final progress = total == 0 ? 0.0 : completed / total;
     final preview = index.items.isEmpty
         ? 'No items yet.'
         : index.items.take(3).map((item) => item.item).join(' - ');
@@ -657,13 +655,13 @@ class _IndexCard extends StatelessWidget {
                 const Row(
                   children: [
                     Icon(
-                      Icons.verified_rounded,
+                      Icons.list_alt_rounded,
                       color: AlmanacColors.tertiary,
                       size: 15,
                     ),
                     SizedBox(width: 6),
                     Text(
-                      'GLOBAL INDEX',
+                      'GENERAL INDEX',
                       style: TextStyle(
                         color: AlmanacColors.tertiary,
                         fontSize: 10,
@@ -699,7 +697,7 @@ class _IndexCard extends StatelessWidget {
                 Row(
                   children: [
                     const Text(
-                      'PROGRESS',
+                      'ITEMS',
                       style: TextStyle(
                         color: AlmanacColors.muted,
                         fontSize: 10,
@@ -708,7 +706,7 @@ class _IndexCard extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      '$completed/$total',
+                      '$total',
                       style: const TextStyle(
                         color: AlmanacColors.tertiary,
                         fontSize: 10,
@@ -716,18 +714,6 @@ class _IndexCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(99),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 7,
-                    backgroundColor: AlmanacColors.surfaceHighest,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      AlmanacColors.tertiary,
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(

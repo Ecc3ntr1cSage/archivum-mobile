@@ -8,11 +8,10 @@ import '../../../core/theme/app_theme.dart';
 import '../domain/index_item.dart';
 
 class _EditableItem {
-  _EditableItem({this.id, required this.controller, this.status});
+  _EditableItem({this.id, required this.controller});
 
   final String? id;
   final TextEditingController controller;
-  int? status;
 
   void dispose() => controller.dispose();
 }
@@ -61,7 +60,6 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
             (item) => _EditableItem(
               id: item.id,
               controller: TextEditingController(text: item.item),
-              status: item.status,
             ),
           )
           .toList();
@@ -91,41 +89,6 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
     });
   }
 
-  void _toggleEditItemStatus(int index) {
-    setState(() {
-      final current = _editItems[index].status ?? 0;
-      _editItems[index].status = current == 1 ? 0 : 1;
-    });
-  }
-
-  Future<void> _toggleViewItemStatus(IndexItem item) async {
-    if (item.id == null) return;
-    final newStatus = item.isChecked ? 0 : 1;
-    try {
-      await ref
-          .read(indexRepositoryProvider)
-          .updateItemStatus(item.id!, newStatus);
-      setState(() {
-        final idx = _currentIndex.items.indexWhere((i) => i.id == item.id);
-        if (idx != -1) {
-          final updatedItems = List<IndexItem>.from(_currentIndex.items);
-          updatedItems[idx] = item.copyWith(status: () => newStatus);
-          _currentIndex = _currentIndex.copyWith(items: updatedItems);
-        }
-      });
-      ref.invalidate(indexesListProvider);
-    } catch (error, stackTrace) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to update status: ${AppError.from(error, stackTrace).message}',
-          ),
-        ),
-      );
-    }
-  }
-
   Future<void> _saveEdit() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
@@ -145,7 +108,6 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
               id: e.id,
               indexId: _currentIndex.id,
               item: e.controller.text.trim(),
-              status: e.status,
             ),
           )
           .toList();
@@ -254,11 +216,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
   Widget build(BuildContext context) {
     final theme = context.archivumTheme;
     final accent = theme.secondary;
-    final checkedCount = _currentIndex.items
-        .where((item) => item.isChecked)
-        .length;
     final totalCount = _currentIndex.items.length;
-    final progress = totalCount == 0 ? 0.0 : checkedCount / totalCount;
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -329,9 +287,8 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
               title: _currentIndex.title,
               eyebrow: _isEditMode ? 'Index editor' : 'Index',
               subtitle: _isEditMode
-                  ? 'Reorder items, flip completion, and keep the list tidy.'
-                  : '$checkedCount of $totalCount completed',
-              progress: progress,
+                  ? 'Edit the list items and keep the archive tidy.'
+                  : '$totalCount items in this list',
               chips: [
                 _HeroChip(label: '$totalCount items', accent: accent),
                 _HeroChip(
@@ -344,24 +301,19 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
             if (_isEditMode)
               _buildEditBody(theme, accent)
             else
-              _buildViewBody(theme, accent, checkedCount, totalCount),
+              _buildViewBody(theme, accent),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildViewBody(
-    ArchivumTheme theme,
-    Color accent,
-    int checkedCount,
-    int totalCount,
-  ) {
+  Widget _buildViewBody(ArchivumTheme theme, Color accent) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionCard(
-          title: 'Checklist',
+          title: 'Items',
           accent: accent,
           child: _currentIndex.items.isEmpty
               ? Center(
@@ -379,13 +331,7 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
               : Column(
                   children: [
                     for (var i = 0; i < _currentIndex.items.length; i++) ...[
-                      _ViewItemTile(
-                        item: _currentIndex.items[i],
-                        index: i,
-                        accent: accent,
-                        onTap: () =>
-                            _toggleViewItemStatus(_currentIndex.items[i]),
-                      ),
+                      _ViewItemTile(item: _currentIndex.items[i], index: i),
                       if (i != _currentIndex.items.length - 1)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -430,27 +376,16 @@ class _IndexDetailPageState extends ConsumerState<IndexDetailPage> {
           const SizedBox(height: 16),
           _FieldLabel(label: 'Items', accent: accent),
           const SizedBox(height: 8),
-          ReorderableListView.builder(
+          ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: _editItems.length,
-            onReorder: (oldIndex, newIndex) {
-              setState(() {
-                if (oldIndex < newIndex) newIndex -= 1;
-                final item = _editItems.removeAt(oldIndex);
-                _editItems.insert(newIndex, item);
-              });
-            },
             itemBuilder: (context, index) {
               final editItem = _editItems[index];
               return Padding(
-                key: ValueKey(editItem),
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _EditItemRow(
-                  accent: accent,
                   editItem: editItem,
-                  index: index,
-                  onToggle: () => _toggleEditItemStatus(index),
                   onDelete: () => _removeEditItem(index),
                 ),
               );
@@ -483,7 +418,6 @@ class _IndexHeroCard extends StatelessWidget {
     required this.title,
     required this.eyebrow,
     required this.subtitle,
-    required this.progress,
     required this.chips,
   });
 
@@ -491,7 +425,6 @@ class _IndexHeroCard extends StatelessWidget {
   final String title;
   final String eyebrow;
   final String subtitle;
-  final double progress;
   final List<Widget> chips;
 
   @override
@@ -555,14 +488,6 @@ class _IndexHeroCard extends StatelessWidget {
                     fontSize: 13,
                     height: 1.45,
                   ),
-                ),
-                const SizedBox(height: 12),
-                LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(999),
-                  valueColor: AlwaysStoppedAnimation<Color>(accent),
-                  backgroundColor: accent.withValues(alpha: 0.16),
                 ),
                 if (chips.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -676,91 +601,50 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _ViewItemTile extends StatelessWidget {
-  const _ViewItemTile({
-    required this.item,
-    required this.index,
-    required this.accent,
-    required this.onTap,
-  });
+  const _ViewItemTile({required this.item, required this.index});
 
   final IndexItem item;
   final int index;
-  final Color accent;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.archivumTheme;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Row(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: item.isChecked ? accent : theme.muted,
-              border: Border.all(
-                color: item.isChecked ? accent : theme.border,
-                width: 2,
-              ),
-            ),
-            child: item.isChecked
-                ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
-                : null,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              item.item,
-              style: TextStyle(
-                color: item.isChecked
-                    ? theme.mutedForeground
-                    : theme.foreground,
-                fontSize: 14,
-                height: 1.45,
-                decoration: item.isChecked ? TextDecoration.lineThrough : null,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            '#${index + 1}',
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            item.item,
             style: TextStyle(
-              color: theme.mutedForeground,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+              color: theme.foreground,
+              fontSize: 14,
+              height: 1.45,
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          '#${index + 1}',
+          style: TextStyle(
+            color: theme.mutedForeground,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _EditItemRow extends StatelessWidget {
-  const _EditItemRow({
-    required this.accent,
-    required this.editItem,
-    required this.index,
-    required this.onToggle,
-    required this.onDelete,
-  });
+  const _EditItemRow({required this.editItem, required this.onDelete});
 
-  final Color accent;
   final _EditableItem editItem;
-  final int index;
-  final VoidCallback onToggle;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.archivumTheme;
-    final checked = (editItem.status ?? 0) == 1;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -771,38 +655,6 @@ class _EditItemRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onToggle,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: checked ? accent : theme.background,
-                border: Border.all(
-                  color: checked ? accent : theme.border,
-                  width: 2,
-                ),
-              ),
-              child: checked
-                  ? const Icon(
-                      Icons.check_rounded,
-                      color: Colors.white,
-                      size: 15,
-                    )
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 10),
-          ReorderableDragStartListener(
-            index: index,
-            child: Icon(
-              Icons.drag_indicator_rounded,
-              color: theme.mutedForeground,
-            ),
-          ),
-          const SizedBox(width: 8),
           Expanded(
             child: TextField(
               controller: editItem.controller,

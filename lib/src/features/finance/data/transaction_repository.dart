@@ -23,6 +23,16 @@ class TransactionRepository {
     return '$userId-${DateTime.now().microsecondsSinceEpoch}';
   }
 
+  TransactionType _parseTransactionType(Object? rawStatus) {
+    final status = (rawStatus as num?)?.toInt();
+    if (status == null ||
+        status < 0 ||
+        status >= TransactionType.values.length) {
+      throw AppError.database('A transaction has an invalid status.');
+    }
+    return TransactionType.values[status];
+  }
+
   Future<String> _requireUserId() async {
     final userId = client.auth.currentUser?.id;
     if (userId == null) {
@@ -70,7 +80,7 @@ class TransactionRepository {
     for (final row in txRows as List) {
       final accountId = row['account_id']?.toString();
       if (accountId == null) continue;
-      final type = TransactionType.values[(row['status'] as int?) ?? 0];
+      final type = _parseTransactionType(row['status']);
       final amount = ((row['amount'] as num?) ?? 0) / 100;
       var delta = 0.0;
 
@@ -98,12 +108,20 @@ class TransactionRepository {
 
   Future<void> createTransaction(TransactionModel transaction) async {
     final userId = await _requireUserId();
+    if (!transaction.amount.isFinite || transaction.amount <= 0) {
+      throw AppError.validation(
+        'Transaction amount must be greater than zero.',
+      );
+    }
     if (transaction.accountId == null) {
       throw AppError.validation('Please select an account.');
     }
     if (transaction.type != TransactionType.transfer &&
         transaction.splits.isEmpty) {
       throw AppError.validation('Please add at least one tag split.');
+    }
+    if (transaction.recurring && transaction.type != TransactionType.expense) {
+      throw AppError.validation('Only expenses can be saved as recurring.');
     }
 
     final splitTotal = transaction.splits.fold<double>(
@@ -178,10 +196,20 @@ class TransactionRepository {
     if (fromAccountId == toAccountId) {
       throw AppError.validation('Choose two different accounts.');
     }
+    if (!amount.isFinite || amount <= 0) {
+      throw AppError.validation('Transfer amount must be greater than zero.');
+    }
 
     final accounts = await getAccounts();
-    final from = accounts.firstWhere((account) => account.id == fromAccountId);
-    final to = accounts.firstWhere((account) => account.id == toAccountId);
+    final from = accounts
+        .where((account) => account.id == fromAccountId)
+        .firstOrNull;
+    final to = accounts
+        .where((account) => account.id == toAccountId)
+        .firstOrNull;
+    if (from == null || to == null) {
+      throw AppError.validation('Choose two valid accounts.');
+    }
     if (from.currency != to.currency) {
       throw AppError.validation(
         'Transfers only support same-currency accounts.',
@@ -222,6 +250,15 @@ class TransactionRepository {
   }
 
   Future<void> updateTransaction(TransactionModel transaction) async {
+    final userId = await _requireUserId();
+    if (transaction.id.isEmpty || transaction.accountId == null) {
+      throw AppError.validation('A transaction and account are required.');
+    }
+    if (!transaction.amount.isFinite || transaction.amount <= 0) {
+      throw AppError.validation(
+        'Transaction amount must be greater than zero.',
+      );
+    }
     if (transaction.type == TransactionType.transfer) {
       throw AppError.validation(
         'Edit transfers by deleting and recreating them.',
@@ -248,7 +285,8 @@ class TransactionRepository {
           'date': _formatDate(transaction.date),
           'recurring': transaction.recurring,
         })
-        .eq('id', transaction.id);
+        .eq('id', transaction.id)
+        .eq('user_id', userId);
 
     await client
         .from('transaction_splits')
@@ -276,14 +314,20 @@ class TransactionRepository {
   }
 
   Future<void> deleteTransaction(TransactionModel transaction) async {
+    final userId = await _requireUserId();
     if (transaction.type == TransactionType.transfer &&
         transaction.transferId != null) {
       await client
           .from('transactions')
           .delete()
-          .eq('transfer_id', transaction.transferId!);
+          .eq('transfer_id', transaction.transferId!)
+          .eq('user_id', userId);
     } else {
-      await client.from('transactions').delete().eq('id', transaction.id);
+      await client
+          .from('transactions')
+          .delete()
+          .eq('id', transaction.id)
+          .eq('user_id', userId);
     }
     await _logActivity(
       transaction.type == TransactionType.income
@@ -340,8 +384,7 @@ class TransactionRepository {
     bool includeRecurring = false,
     bool recurringOnly = false,
   }) async {
-    final userId = client.auth.currentUser?.id;
-    if (userId == null) return [];
+    final userId = await _requireUserId();
 
     var query = client
         .from('transactions')
@@ -380,7 +423,7 @@ class TransactionRepository {
         accountCurrency: account is Map<String, dynamic>
             ? account['currency']?.toString()
             : null,
-        type: TransactionType.values[(row['status'] as int?) ?? 0],
+        type: _parseTransactionType(row['status']),
         amount: ((row['amount'] as num?) ?? 0) / 100,
         merchant: row['merchant'] as String?,
         details: row['details'] as String? ?? '',

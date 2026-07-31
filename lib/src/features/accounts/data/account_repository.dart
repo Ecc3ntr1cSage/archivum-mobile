@@ -10,12 +10,29 @@ class SupabaseAccountRepository implements AccountRepository {
 
   SupabaseAccountRepository(this.client);
 
+  String _requireUserId() {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw AppError.auth('You must be signed in to manage credentials.');
+    }
+    return userId;
+  }
+
+  String _scopedUserId(String? requestedUserId) {
+    final userId = _requireUserId();
+    if (requestedUserId != null && requestedUserId != userId) {
+      throw AppError.permission(
+        'You cannot access another user’s credentials.',
+      );
+    }
+    return userId;
+  }
+
   @override
   Future<Account> createAccount(Account account) async {
+    final userId = _requireUserId();
     final payload = account.toJson();
-    if (payload['user_id'] == null) {
-      payload['user_id'] = client.auth.currentUser?.id;
-    }
+    payload['user_id'] = userId;
 
     final response = await client
         .from(_credentialsTable)
@@ -31,23 +48,35 @@ class SupabaseAccountRepository implements AccountRepository {
 
   @override
   Future<List<Account>> listAccounts({String? userId}) async {
-    var query = client.from(_credentialsTable).select();
-    if (userId != null) {
-      query = query.eq('user_id', userId);
-    }
+    final scopedUserId = _scopedUserId(userId);
+    var query = client
+        .from(_credentialsTable)
+        .select()
+        .eq('user_id', scopedUserId);
     final response = await query.order('created_at', ascending: false);
     return (response as List).map((row) => Account.fromJson(row)).toList();
   }
 
   @override
   Future<Account> updateAccount(Account account) async {
-    final payload = account.toJson()
-      ..remove('id')
-      ..remove('user_id');
+    if (account.id == null) {
+      throw AppError.validation('Credential ID is required for update.');
+    }
+    final userId = _requireUserId();
+    final payload = {
+      'title': account.title,
+      'method': account.method,
+      'email': account.email,
+      'username': account.username,
+      'password': account.password,
+      'provider': account.provider,
+      'tags': account.tags,
+    };
     final response = await client
         .from(_credentialsTable)
         .update(payload)
         .eq('id', account.id!)
+        .eq('user_id', userId)
         .select()
         .single();
     final result = Account.fromJson(response);
@@ -59,7 +88,12 @@ class SupabaseAccountRepository implements AccountRepository {
 
   @override
   Future<void> deleteAccount(String id) async {
-    await client.from(_credentialsTable).delete().eq('id', id);
+    final userId = _requireUserId();
+    await client
+        .from(_credentialsTable)
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId);
     await client.from('activity_logs').insert({
       'activity_type': 'credential_deleted',
     });

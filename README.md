@@ -11,7 +11,7 @@ The app uses Supabase for authentication and persistent data and Riverpod for ap
 - Almanac archive for notes, indexes, and saved account credentials, with
   matching insert flows for each record type.
 - Notes with tags.
-- Indexes: checklist-style records with individual items and completion state.
+- Indexes: general list records with individual items.
 - Account and credential records.
 - Daily prayer completion tracking with a progress dashboard, 28-day preview,
   and monthly history.
@@ -106,9 +106,21 @@ flutter test
 # Run the app
 flutter run
 
-# Regenerate launcher icons after changing assets/icon/icon.png
+# Regenerate launcher icons after changing assets/icon/archivum_icon.png
 dart run flutter_launcher_icons
+
+# Build a locally installable release APK
+flutter build apk --release
 ```
+
+The APK is written to `build/app/outputs/flutter-apk/app-release.apk`. For a
+store-distributable build, create a private `android/key.properties` from
+`android/key.properties.example`, point `storeFile` at your upload keystore,
+and use a unique signing key. Without that file, release builds intentionally
+fall back to the local debug key and must not be published.
+
+The Android application ID is `com.archivum.mobile`. Change it before
+distribution if it is not unique to your organization.
 
 ## Project Layout
 

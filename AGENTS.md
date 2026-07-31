@@ -42,7 +42,7 @@ This file is the source of truth for future Codex sessions working in this repos
     budget allocation, account-to-account transfers, and history.
   - `home/`: signed-in landing page with live status, archive metrics, quick
     actions, and recent activity.
-  - `indexes/`: checklist/index records and child items.
+  - `indexes/`: general index/list records and child items.
   - `insights/`: analytics and derived summaries.
   - `notes/`: note CRUD.
   - `prayers/`: daily prayer tracking.
@@ -95,6 +95,13 @@ If launcher icons are updated:
 dart run flutter_launcher_icons
 ```
 
+- Android release builds use `android/key.properties` when present. Keep that
+  file and the keystore out of version control; `android/key.properties.example`
+  documents the required fields. Without signing properties, Gradle falls back
+  to the debug key for local APK verification only.
+- The current Android application ID is `com.archivum.mobile`; replace it with
+  an organization-owned unique ID before publishing.
+
 ## Verified Data Model
 
 These tables and RPCs are referenced directly in the current codebase and should be treated as the working schema unless the backend is intentionally changed.
@@ -120,7 +127,7 @@ These tables and RPCs are referenced directly in the current codebase and should
   - Columns used: `id`, `user_id`, `title`, `created_at`
 
 - `index_items`
-  - Columns used: `id`, `index_id`, `item`, `status`, `created_at`
+  - Columns used: `id`, `index_id`, `item`, `created_at`
   - Relationship: many `index_items` belong to one `indexes` row through `index_id`
   - Deletion behavior assumes FK cascade from `indexes` to `index_items`
 
@@ -197,7 +204,7 @@ These tables and RPCs are referenced directly in the current codebase and should
 
 - Indexes:
   - Parent records live in `indexes`.
-  - Child checklist items live in `index_items`.
+  - Child list items live in `index_items`; lists do not track completion state.
   - Updating an index may require syncing created, updated, and deleted child rows.
 
 - Activity logging:
@@ -243,3 +250,4 @@ When using `/review`, pay special attention to:
 ## Known Repository Notes
 
 - The working tree may contain in-progress user changes; do not overwrite unrelated edits.
+- Release APK output is `build/app/outputs/flutter-apk/app-release.apk`.

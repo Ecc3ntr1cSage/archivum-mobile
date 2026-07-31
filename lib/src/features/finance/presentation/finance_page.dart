@@ -38,7 +38,7 @@ class _FinancePageState extends State<FinancePage> {
   final _institution = TextEditingController();
   final _accountInfo = TextEditingController();
   final _openingBalance = TextEditingController();
-  final List<_SplitDraft> _splits = [_SplitDraft()];
+  final List<_SplitDraft> _splits = [];
 
   TransactionType _entryType = TransactionType.expense;
   DateTime? _selectedDate;
@@ -126,9 +126,7 @@ class _FinancePageState extends State<FinancePage> {
     for (final split in _splits) {
       split.dispose();
     }
-    _splits
-      ..clear()
-      ..add(_SplitDraft());
+    _splits.clear();
     _splitMode = _SplitMode.exact;
   }
 

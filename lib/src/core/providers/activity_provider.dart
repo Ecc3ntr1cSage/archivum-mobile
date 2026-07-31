@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../errors/app_error.dart';
 import 'supabase_provider.dart';
 
 /// A single day's activity count.
@@ -18,13 +19,14 @@ class ActivityDay {
 }
 
 /// Fetches the last 7 days of activity from the RPC function.
-Future<List<ActivityDay>> _fetchActivityLast7Days(SupabaseClient client) async {
-  final response = await client.rpc('get_activity_last_7_days');
-  final list = response as List;
-  return list
-      .map((item) => ActivityDay.fromJson(item as Map<String, dynamic>))
-      .toList();
-}
+Future<List<ActivityDay>> _fetchActivityLast7Days(SupabaseClient client) =>
+    guardAppError(() async {
+      final response = await client.rpc('get_activity_last_7_days');
+      final list = response as List;
+      return list
+          .map((item) => ActivityDay.fromJson(item as Map<String, dynamic>))
+          .toList();
+    });
 
 /// Provider for the last 7 days of activity data.
 final activityLast7DaysProvider = FutureProvider<List<ActivityDay>>((ref) {

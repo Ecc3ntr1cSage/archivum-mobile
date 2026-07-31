@@ -46,6 +46,23 @@ class AppError implements Exception {
   factory AppError.config(String message) =>
       AppError(kind: AppErrorKind.config, message: message);
 
+  factory AppError.database(
+    String message, {
+    Object? cause,
+    StackTrace? stackTrace,
+  }) => AppError(
+    kind: AppErrorKind.database,
+    message: message,
+    cause: cause,
+    stackTrace: stackTrace,
+  );
+
+  factory AppError.permission(String message) =>
+      AppError(kind: AppErrorKind.permission, message: message);
+
+  factory AppError.notFound(String message) =>
+      AppError(kind: AppErrorKind.notFound, message: message);
+
   factory AppError.network(
     String message, {
     Object? cause,
@@ -124,3 +141,13 @@ class AppError implements Exception {
 }
 
 String errorMessage(Object error) => AppError.from(error).message;
+
+/// Converts third-party failures at repository/service boundaries while
+/// preserving already-normalized application errors.
+Future<T> guardAppError<T>(Future<T> Function() operation) async {
+  try {
+    return await operation();
+  } catch (error, stackTrace) {
+    throw AppError.from(error, stackTrace);
+  }
+}

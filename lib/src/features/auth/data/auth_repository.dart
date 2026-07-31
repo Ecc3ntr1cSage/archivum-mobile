@@ -36,6 +36,10 @@ class AuthRepository {
   }
 
   Future<void> signInWithGoogle() async {
-    await client.auth.signInWithOAuth(OAuthProvider.google);
+    try {
+      await client.auth.signInWithOAuth(OAuthProvider.google);
+    } catch (error, stackTrace) {
+      throw AppError.from(error, stackTrace);
+    }
   }
 }

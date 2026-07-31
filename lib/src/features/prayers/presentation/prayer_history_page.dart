@@ -5,6 +5,7 @@ import '../../../core/errors/app_error.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/prayer_repository.dart';
 import '../domain/prayer_day.dart';
+import 'prayer_intensity.dart';
 
 class PrayerHistoryPage extends StatefulWidget {
   const PrayerHistoryPage({
@@ -131,22 +132,7 @@ class _PrayerHistoryPageState extends State<PrayerHistoryPage> {
   }
 
   Color _intensityColor(ArchivumTheme theme, int intensity) {
-    switch (intensity) {
-      case 5:
-        return theme.primary;
-      case 4:
-        return theme.primary.withValues(alpha: 0.78);
-      case 3:
-        return theme.secondary;
-      case 2:
-        return theme.chart3;
-      case 1:
-        return theme.destructive.withValues(alpha: 0.72);
-      case 0:
-        return theme.mutedForeground.withValues(alpha: 0.18);
-      default:
-        return theme.muted;
-    }
+    return PrayerIntensityColors.forCount(intensity < 0 ? null : intensity);
   }
 
   int get _totalPrayers =>
@@ -607,7 +593,7 @@ class _Legend extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        for (final intensity in [-1, 0, 1, 2, 3, 4, 5])
+        for (final intensity in [0, 1, 2, 3, 4, 5])
           Container(
             width: 13,
             height: 13,
