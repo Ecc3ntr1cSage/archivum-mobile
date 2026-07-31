@@ -201,6 +201,8 @@ These tables and RPCs are referenced directly in the current codebase and should
   - The main prayer page shows the active day's completion state plus a
     28-day history preview; the dedicated history page remains the monthly
     detail view.
+  - Prayer history uses a shared intensity scale: no record is neutral, `0` is
+    gray, then `1` red, `2` orange, `3` amber, `4` soft green, and `5` green.
 
 - Indexes:
   - Parent records live in `indexes`.

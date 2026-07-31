@@ -131,7 +131,7 @@ class _PrayerHistoryPageState extends State<PrayerHistoryPage> {
     return -1;
   }
 
-  Color _intensityColor(ArchivumTheme theme, int intensity) {
+  Color _intensityColor(int intensity) {
     return PrayerIntensityColors.forCount(intensity < 0 ? null : intensity);
   }
 
@@ -190,7 +190,7 @@ class _PrayerHistoryPageState extends State<PrayerHistoryPage> {
                             selectedYear: _selectedYear,
                             intensityForDay: _intensityForDay,
                             intensityColor: (intensity) =>
-                                _intensityColor(theme, intensity),
+                                _intensityColor(intensity),
                           ),
                         ],
                       ),
